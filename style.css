@@ -1,0 +1,133 @@
+:root {
+  --bg-top: #8fd6ff;
+  --bg-mid: #d2f3ff;
+  --bg-ground: #f6f0cf;
+  --text: #13273a;
+  --panel: rgba(255, 255, 255, 0.82);
+  --accent: #f26a4b;
+  --accent-dark: #d84d31;
+  --hud-shadow: rgba(19, 39, 58, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-mid));
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  color: var(--text);
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.game-shell {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+}
+
+#gameCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hud {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+  display: flex;
+  gap: 10px;
+  z-index: 5;
+}
+
+.hud-item {
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: clamp(0.85rem, 2.8vw, 1rem);
+  font-weight: 700;
+  box-shadow: 0 6px 16px var(--hud-shadow);
+  backdrop-filter: blur(3px);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  text-align: center;
+  background: rgba(14, 28, 42, 0.28);
+  color: #fff;
+  z-index: 6;
+  padding: 24px;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+  letter-spacing: 0.04em;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: clamp(1rem, 4vw, 1.2rem);
+}
+
+#actionButton {
+  justify-self: center;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 26px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(242, 106, 75, 0.45);
+}
+
+#actionButton:active {
+  background: var(--accent-dark);
+  transform: translateY(1px);
+}
+
+.jump-button {
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  border: none;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 0 8px 20px var(--hud-shadow);
+  z-index: 5;
+  opacity: 0.94;
+}
+
+.jump-button:active {
+  transform: scale(0.97);
+}
+
+@media (min-width: 900px) {
+  .jump-button {
+    width: 96px;
+    height: 96px;
+    font-size: 1.1rem;
+  }
+}

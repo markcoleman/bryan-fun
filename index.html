@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Right Runner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-shell">
+    <canvas id="gameCanvas" aria-label="Side-scrolling runner game"></canvas>
+    <section class="hud" aria-live="polite">
+      <div class="hud-item">Score: <span id="scoreValue">0</span></div>
+      <div class="hud-item">Speed: <span id="speedValue">0</span></div>
+    </section>
+    <section class="overlay" id="overlay">
+      <h1 class="title">Right Runner</h1>
+      <p class="subtitle">Tap, click, or press Space/Arrow Up to jump.</p>
+      <button id="actionButton" type="button">Start Run</button>
+    </section>
+    <button id="jumpButton" class="jump-button" type="button" aria-label="Jump">
+      Jump
+    </button>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
