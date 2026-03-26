@@ -5,6 +5,7 @@
   const ctx = canvas.getContext("2d");
   const overlay = document.getElementById("overlay");
   const actionButton = document.getElementById("actionButton");
+  const shareLink = document.getElementById("shareLink");
   const jumpButton = document.getElementById("jumpButton");
   const scoreValue = document.getElementById("scoreValue");
   const speedValue = document.getElementById("speedValue");
@@ -123,10 +124,35 @@
     updateHud();
   }
 
-  function showOverlay(title, subtitle, buttonText) {
+  function buildShareUrl(score) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("score", String(score));
+    return url.toString();
+  }
+
+  function hideShareLink() {
+    shareLink.classList.add("hidden");
+    shareLink.removeAttribute("href");
+    shareLink.dataset.score = "";
+  }
+
+  function showShareLink(score) {
+    const shareUrl = buildShareUrl(score);
+    shareLink.href = shareUrl;
+    shareLink.dataset.score = String(score);
+    shareLink.textContent = `Share Score: ${score}`;
+    shareLink.classList.remove("hidden");
+  }
+
+  function showOverlay(title, subtitle, buttonText, shareScore = null) {
     titleEl.textContent = title;
     subtitleEl.textContent = subtitle;
     actionButton.textContent = buttonText;
+    if (Number.isFinite(shareScore)) {
+      showShareLink(shareScore);
+    } else {
+      hideShareLink();
+    }
     overlay.classList.remove("hidden");
   }
 
@@ -142,7 +168,12 @@
 
   function endRun() {
     world.mode = "gameOver";
-    showOverlay("Run Over", "You hit a wall. Jump earlier to clear it.", "Run Again");
+    showOverlay(
+      "Run Over",
+      `You hit an umbrella. Final score: ${world.score}`,
+      "Run Again",
+      world.score
+    );
   }
 
   function queueJump() {
@@ -492,6 +523,20 @@
     canvas.addEventListener("pointerdown", queueJump);
     jumpButton.addEventListener("pointerdown", queueJump);
     actionButton.addEventListener("click", startRun);
+    shareLink.addEventListener("click", (event) => {
+      if (!navigator.share) {
+        return;
+      }
+      event.preventDefault();
+      const score = Number.parseInt(shareLink.dataset.score || "0", 10) || 0;
+      navigator
+        .share({
+          title: "Bryan's Bonkers Cruise Dash",
+          text: `I scored ${score} on Bryan's Bonkers Cruise Dash.`,
+          url: shareLink.href
+        })
+        .catch(() => {});
+    });
     window.addEventListener("resize", resizeCanvas);
   }
 
