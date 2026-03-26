@@ -25,27 +25,46 @@
     wallGapMax: 320,
     collectibleW: 50,
     collectibleH: 73,
+    collectibleXOffset: 18,
+    collectibleLiftMin: 118,
+    collectibleLiftMax: 144,
+    collectiblePickupPadding: 24,
+    slideTriggerScore: 3,
+    slideMinSpeed: 500,
+    slideHeight: 64,
     deckWalkableRatio: 0.38,
     deckMinTileHeight: 210
   };
 
   const assets = {
     bryan: new Image(),
+    bryanStep: new Image(),
+    slide: new Image(),
     drink: new Image(),
     deck: new Image(),
     umbrella: new Image(),
     bryanReady: false,
+    bryanStepReady: false,
+    slideReady: false,
     drinkReady: false,
     deckReady: false,
     umbrellaReady: false
   };
 
   assets.bryan.src = "bryan.png";
+  assets.bryanStep.src = "bryan2.png";
+  assets.slide.src = "slide.png";
   assets.drink.src = "drink.png";
   assets.deck.src = "deck.png";
   assets.umbrella.src = "umbrella.png";
   assets.bryan.onload = () => {
     assets.bryanReady = true;
+  };
+  assets.bryanStep.onload = () => {
+    assets.bryanStepReady = true;
+  };
+  assets.slide.onload = () => {
+    assets.slideReady = true;
   };
   assets.drink.onload = () => {
     assets.drinkReady = true;
@@ -69,7 +88,15 @@
     elapsed: 0,
     walls: [],
     collectibles: [],
-    nextSpawnX: 0
+    nextSpawnX: 0,
+    slide: {
+      active: false,
+      hasSpawned: false,
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0
+    }
   };
 
   const runner = {
@@ -112,6 +139,12 @@
     world.walls.length = 0;
     world.collectibles.length = 0;
     world.nextSpawnX = world.width * 0.9;
+    world.slide.active = false;
+    world.slide.hasSpawned = false;
+    world.slide.x = 0;
+    world.slide.y = 0;
+    world.slide.width = 0;
+    world.slide.height = 0;
 
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
@@ -170,7 +203,7 @@
     world.mode = "gameOver";
     showOverlay(
       "Run Over",
-      `You hit an umbrella. Final score: ${world.score}`,
+      `You hit an obstacle. Final score: ${world.score}`,
       "Run Again",
       world.score
     );
@@ -214,6 +247,55 @@
     return false;
   }
 
+  function hasAabbCollision(a, b) {
+    return (
+      a.left < b.left + b.width &&
+      a.left + a.width > b.left &&
+      a.top < b.top + b.height &&
+      a.top + a.height > b.top
+    );
+  }
+
+  function activateSlideObstacle() {
+    const slideHeight = config.slideHeight;
+    const slideAspect =
+      assets.slideReady && assets.slide.naturalHeight > 0
+        ? assets.slide.naturalWidth / assets.slide.naturalHeight
+        : 3;
+    const slideWidth = slideHeight * slideAspect;
+    world.slide.active = true;
+    world.slide.hasSpawned = true;
+    world.slide.width = slideWidth;
+    world.slide.height = slideHeight;
+    world.slide.x = world.width + slideWidth + 28;
+    world.slide.y = world.groundY - slideHeight;
+  }
+
+  function updateSlideObstacle(dt, runnerRect) {
+    if (!world.slide.hasSpawned && world.score >= config.slideTriggerScore) {
+      activateSlideObstacle();
+    }
+    if (!world.slide.active) {
+      return false;
+    }
+
+    world.slide.y = world.groundY - world.slide.height;
+    const slideSpeed = Math.max(config.slideMinSpeed, world.speed + 40);
+    world.slide.x -= slideSpeed * dt;
+    if (world.slide.x + world.slide.width < -80) {
+      world.slide.active = false;
+      return false;
+    }
+
+    const slideRect = {
+      left: world.slide.x + 8,
+      top: world.slide.y + 10,
+      width: Math.max(12, world.slide.width - 16),
+      height: Math.max(12, world.slide.height - 14)
+    };
+    return hasAabbCollision(runnerRect, slideRect);
+  }
+
   function collectItems(runnerCenterX, runnerCenterY) {
     for (const item of world.collectibles) {
       if (item.taken) {
@@ -222,7 +304,7 @@
       const bobY = item.y + Math.sin(world.elapsed * 5 + item.phase) * 5;
       const dx = runnerCenterX - item.x;
       const dy = runnerCenterY - bobY;
-      const radius = item.radius + 14;
+      const radius = item.radius + config.collectiblePickupPadding;
       if (dx * dx + dy * dy <= radius * radius) {
         item.taken = true;
         world.score += 1;
@@ -239,8 +321,11 @@
     const height = config.wallHeight;
     world.walls.push({ x, width, height });
     world.collectibles.push({
-      x: x + width * 0.5,
-      y: world.groundY - height - randomBetween(92, 150),
+      x: x + width * 0.5 + config.collectibleXOffset,
+      y:
+        world.groundY -
+        height -
+        randomBetween(config.collectibleLiftMin, config.collectibleLiftMax),
       radius: 10,
       width: config.collectibleW,
       height: config.collectibleH,
@@ -305,12 +390,21 @@
     const runnerBottom = runner.y + runner.height - 5;
     const runnerLeft = worldLeft + 8;
     const runnerRight = worldRight - 8;
+    const runnerRect = {
+      left: world.width * config.runnerScreenRatio + 8,
+      top: runnerTop,
+      width: runner.width - 16,
+      height: runnerBottom - runnerTop
+    };
     if (hasWallCollision(runnerLeft, runnerRight, runnerTop, runnerBottom)) {
       endRun();
       return;
     }
-
     collectItems(runnerWorldX + runner.width * 0.5, runner.y + runner.height * 0.5);
+    if (updateSlideObstacle(dt, runnerRect)) {
+      endRun();
+      return;
+    }
     ensureGenerated();
     pruneWorld();
     updateHud();
@@ -399,6 +493,32 @@
     }
   }
 
+  function drawSlideObstacle() {
+    if (!world.slide.active) {
+      return;
+    }
+
+    if (assets.slideReady) {
+      ctx.drawImage(
+        assets.slide,
+        world.slide.x,
+        world.slide.y,
+        world.slide.width,
+        world.slide.height
+      );
+      return;
+    }
+
+    ctx.fillStyle = "#2f8fca";
+    fillRoundedRect(
+      world.slide.x,
+      world.slide.y + world.slide.height * 0.2,
+      world.slide.width,
+      world.slide.height * 0.8,
+      10
+    );
+  }
+
   function drawCollectibles() {
     for (const item of world.collectibles) {
       if (item.taken) {
@@ -431,6 +551,8 @@
     const x = world.width * config.runnerScreenRatio;
     const y = runner.y;
     const runCycle = world.elapsed * Math.max(5.5, world.speed / 50);
+    const isWalking = world.mode === "running" && runner.onGround;
+    const walkFrame = Math.floor(runCycle * 1.4) % 2;
 
     runner.tilt += (Math.max(-0.2, Math.min(0.2, -runner.vy * 0.0008)) - runner.tilt) * 0.2;
     const bob = runner.onGround ? Math.sin(runCycle) * 1.9 : 0;
@@ -447,7 +569,9 @@
     ctx.fill();
 
     if (assets.bryanReady) {
-      ctx.drawImage(assets.bryan, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
+      const runnerImage =
+        isWalking && walkFrame === 1 && assets.bryanStepReady ? assets.bryanStep : assets.bryan;
+      ctx.drawImage(runnerImage, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
     } else {
       ctx.fillStyle = "#f26a4b";
       fillRoundedRect(-16, -12, 32, 34, 10);
@@ -491,6 +615,7 @@
     drawLayer("#a9d095", world.height * 0.75, 52, 260, 0.3);
     drawGround();
     drawWalls();
+    drawSlideObstacle();
     drawCollectibles();
     drawRunner();
   }
