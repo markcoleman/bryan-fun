@@ -8,6 +8,8 @@
   const shareLink = document.getElementById("shareLink");
   const scoreValue = document.getElementById("scoreValue");
   const speedValue = document.getElementById("speedValue");
+  const characterSelect = document.getElementById("characterSelect");
+  const characterDetails = document.getElementById("characterDetails");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
 
@@ -38,37 +40,85 @@
   };
 
   const assets = {
-    bryan: new Image(),
-    bryanStep: new Image(),
     slide: new Image(),
-    drink: new Image(),
     deck: new Image(),
     umbrella: new Image(),
-    bryanReady: false,
-    bryanStepReady: false,
     slideReady: false,
-    drinkReady: false,
     deckReady: false,
     umbrellaReady: false
   };
 
-  assets.bryan.src = "bryan.png";
-  assets.bryanStep.src = "bryan2.png";
+  const characterPresets = {
+    bryan: {
+      name: "Bryan",
+      collectibleName: "Pill",
+      details: "Balanced speed and control. Uses existing Bryan + pill art.",
+      runnerIdleSrc: "bryan.png",
+      runnerStepSrc: "bryan2.png",
+      collectibleSrc: "drink.png",
+      speedGainMultiplier: 1,
+      jumpVelocityMultiplier: 1,
+      fallbackColor: "#f26a4b",
+      collectibleGlyph: "💊",
+      collectibleColor: "#ffd95e"
+    },
+    barbra: {
+      name: "Barbra",
+      collectibleName: "Morning Beer",
+      details: "Extra zip after pickups, with a slightly lower jump arc.",
+      runnerIdleSrc: "barbra.png",
+      runnerStepSrc: "barbra2.png",
+      collectibleSrc: "morning-beer.png",
+      speedGainMultiplier: 1.08,
+      jumpVelocityMultiplier: 0.96,
+      fallbackColor: "#f48cb4",
+      collectibleGlyph: "🍺",
+      collectibleColor: "#ffc857"
+    },
+    kyle: {
+      name: "Kyle",
+      collectibleName: "Champagne",
+      details: "Higher jumps and smoother landings with moderate acceleration.",
+      runnerIdleSrc: "kyle.png",
+      runnerStepSrc: "kyle2.png",
+      collectibleSrc: "champagne.png",
+      speedGainMultiplier: 0.94,
+      jumpVelocityMultiplier: 1.05,
+      fallbackColor: "#7da2ff",
+      collectibleGlyph: "🍾",
+      collectibleColor: "#cde88f"
+    }
+  };
+
+  const characterAssets = {};
+  let currentCharacter = "bryan";
+
+  function loadImageWithReadyFlag(src) {
+    const image = new Image();
+    const record = {
+      image,
+      ready: false
+    };
+    image.src = src;
+    image.onload = () => {
+      record.ready = true;
+    };
+    return record;
+  }
+
+  for (const [key, preset] of Object.entries(characterPresets)) {
+    characterAssets[key] = {
+      idle: loadImageWithReadyFlag(preset.runnerIdleSrc),
+      step: loadImageWithReadyFlag(preset.runnerStepSrc),
+      collectible: loadImageWithReadyFlag(preset.collectibleSrc)
+    };
+  }
+
   assets.slide.src = "slide.png";
-  assets.drink.src = "drink.png";
   assets.deck.src = "deck.png";
   assets.umbrella.src = "umbrella.png";
-  assets.bryan.onload = () => {
-    assets.bryanReady = true;
-  };
-  assets.bryanStep.onload = () => {
-    assets.bryanStepReady = true;
-  };
   assets.slide.onload = () => {
     assets.slideReady = true;
-  };
-  assets.drink.onload = () => {
-    assets.drinkReady = true;
   };
   assets.deck.onload = () => {
     assets.deckReady = true;
@@ -114,6 +164,14 @@
     jumpBuffer: 0,
     tilt: 0
   };
+
+  function getActivePreset() {
+    return characterPresets[currentCharacter] || characterPresets.bryan;
+  }
+
+  function getActiveAssets() {
+    return characterAssets[currentCharacter] || characterAssets.bryan;
+  }
 
   function randomBetween(min, max) {
     return min + Math.random() * (max - min);
@@ -194,6 +252,7 @@
       hideShareLink();
     }
     overlay.classList.remove("hidden");
+    updateCharacterUi();
   }
 
   function hideOverlay() {
@@ -217,10 +276,11 @@
   }
 
   function endRun() {
+    const preset = getActivePreset();
     world.mode = "gameOver";
     showOverlay(
       "Run Over",
-      `You hit an obstacle. Final score: ${world.score}`,
+      `You hit an obstacle. Final score with ${preset.name}: ${world.score}`,
       "Run Again",
       world.score
     );
@@ -243,7 +303,7 @@
       return;
     }
     if (runner.onGround || runner.coyoteTime > 0) {
-      runner.vy = -config.jumpVelocity;
+      runner.vy = -config.jumpVelocity * getActivePreset().jumpVelocityMultiplier;
       runner.onGround = false;
       runner.coyoteTime = 0;
       runner.jumpBuffer = 0;
@@ -279,10 +339,11 @@
   }
 
   function getProgressiveSpeedGain() {
+    const preset = getActivePreset();
     const difficulty = getDifficulty();
     return (
-      config.speedGainPerCollectibleBase +
-      config.speedGainPerCollectibleScale * difficulty
+      (config.speedGainPerCollectibleBase +
+      config.speedGainPerCollectibleScale * difficulty) * preset.speedGainMultiplier
     );
   }
 
@@ -412,6 +473,7 @@
   }
 
   function spawnWall(x) {
+    const preset = getActivePreset();
     const width = config.wallWidth;
     const height = getWallHeight();
     world.walls.push({ x, width, height });
@@ -426,6 +488,7 @@
       height: config.collectibleH,
       phase: Math.random() * Math.PI * 2,
       type: "drink",
+      label: preset.collectibleName,
       taken: false
     });
     if (Math.random() < config.bonusSpawnChance) {
@@ -632,6 +695,8 @@
   }
 
   function drawCollectibles() {
+    const preset = getActivePreset();
+    const activeAssets = getActiveAssets();
     for (const item of world.collectibles) {
       if (item.taken) {
         continue;
@@ -649,8 +714,14 @@
       ctx.arc(x, y + 2, item.radius + 11, 0, Math.PI * 2);
       ctx.fill();
 
-      if (!isBonus && assets.drinkReady) {
-        ctx.drawImage(assets.drink, x - drawW * 0.5, y - drawH * 0.5, drawW, drawH);
+      if (!isBonus && activeAssets.collectible.ready) {
+        ctx.drawImage(
+          activeAssets.collectible.image,
+          x - drawW * 0.5,
+          y - drawH * 0.5,
+          drawW,
+          drawH
+        );
       } else if (isBonus) {
         ctx.fillStyle = "#ffcc33";
         ctx.beginPath();
@@ -665,15 +736,22 @@
         ctx.textBaseline = "middle";
         ctx.fillText("B", x, y + 1);
       } else {
-        ctx.fillStyle = "#ffd95e";
+        ctx.fillStyle = preset.collectibleColor;
         ctx.beginPath();
         ctx.arc(x, y, item.radius, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = "#4b3a11";
+        ctx.font = "bold 14px Trebuchet MS, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(preset.collectibleGlyph, x, y + 1);
       }
     }
   }
 
   function drawRunner() {
+    const preset = getActivePreset();
+    const activeAssets = getActiveAssets();
     const x = world.width * config.runnerScreenRatio;
     const y = runner.y;
     const runCycle = world.elapsed * Math.max(5.5, world.speed / 50);
@@ -694,12 +772,14 @@
     ctx.ellipse(0, runner.height * 0.54, 24, 9, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    if (assets.bryanReady) {
+    if (activeAssets.idle.ready) {
       const runnerImage =
-        isWalking && walkFrame === 1 && assets.bryanStepReady ? assets.bryanStep : assets.bryan;
+        isWalking && walkFrame === 1 && activeAssets.step.ready
+          ? activeAssets.step.image
+          : activeAssets.idle.image;
       ctx.drawImage(runnerImage, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
     } else {
-      ctx.fillStyle = "#f26a4b";
+      ctx.fillStyle = preset.fallbackColor;
       fillRoundedRect(-16, -12, 32, 34, 10);
       ctx.fillStyle = "#ffd4b6";
       ctx.beginPath();
@@ -791,24 +871,39 @@
       }
       event.preventDefault();
       const score = Number.parseInt(shareLink.dataset.score || "0", 10) || 0;
+      const preset = getActivePreset();
       navigator
         .share({
-          title: "Bryan's Bonkers Cruise Dash",
-          text: `I scored ${score} on Bryan's Bonkers Cruise Dash.`,
+          title: `${preset.name}'s Bonkers Cruise Dash`,
+          text: `I scored ${score} with ${preset.name} on Bonkers Cruise Dash.`,
           url: shareLink.href
         })
         .catch(() => {});
     });
     window.addEventListener("resize", resizeCanvas);
+    characterSelect.addEventListener("change", (event) => {
+      currentCharacter = event.target.value;
+      updateCharacterUi();
+      if (world.mode !== "running" && world.mode !== "casino") {
+        resetWorld();
+      }
+    });
+  }
+
+  function updateCharacterUi() {
+    const preset = getActivePreset();
+    characterSelect.value = currentCharacter;
+    characterDetails.textContent = `${preset.name} collects ${preset.collectibleName}. ${preset.details}`;
   }
 
   resizeCanvas();
   resetWorld();
   showOverlay(
     "Bryan's Bonkers Cruise Dash",
-    "Jump walls and collect drinks. Difficulty ramps up gradually.",
+    "Jump walls and collect pickups. Difficulty ramps up gradually.",
     "Start Run"
   );
+  updateCharacterUi();
   setupInput();
   requestAnimationFrame(onFrame);
 })();

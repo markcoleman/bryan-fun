@@ -112,6 +112,34 @@ body {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.character-picker {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.character-picker label {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+#characterSelect {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #10243a;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.character-details {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.94;
+}
+
 .overlay-actions {
   display: grid;
   gap: 10px;
