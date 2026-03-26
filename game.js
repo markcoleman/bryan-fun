@@ -6,7 +6,6 @@
   const overlay = document.getElementById("overlay");
   const actionButton = document.getElementById("actionButton");
   const shareLink = document.getElementById("shareLink");
-  const jumpButton = document.getElementById("jumpButton");
   const scoreValue = document.getElementById("scoreValue");
   const speedValue = document.getElementById("speedValue");
   const titleEl = overlay.querySelector(".title");
@@ -15,22 +14,23 @@
   const config = {
     gravity: 1820,
     jumpVelocity: 900,
-    startSpeed: 280,
-    maxSpeed: 760,
-    speedGainPerCollectible: 24,
+    startSpeed: 220,
+    maxSpeed: 560,
+    speedGainPerCollectibleBase: 10,
+    speedGainPerCollectibleScale: 9,
     runnerScreenRatio: 0.2,
     wallWidth: 64,
     wallHeight: 98,
-    wallGapMin: 200,
-    wallGapMax: 320,
+    wallGapMin: 180,
+    wallGapMax: 420,
     collectibleW: 50,
     collectibleH: 73,
     collectibleXOffset: 18,
     collectibleLiftMin: 118,
     collectibleLiftMax: 144,
     collectiblePickupPadding: 24,
-    slideTriggerScore: 3,
-    slideMinSpeed: 500,
+    slideTriggerScore: 12,
+    slideMinSpeed: 380,
     slideHeight: 64,
     deckWalkableRatio: 0.38,
     deckMinTileHeight: 210
@@ -256,6 +256,30 @@
     );
   }
 
+
+  function getDifficulty() {
+    return Math.min(1, world.score / 30);
+  }
+
+  function getProgressiveSpeedGain() {
+    const difficulty = getDifficulty();
+    return (
+      config.speedGainPerCollectibleBase +
+      config.speedGainPerCollectibleScale * difficulty
+    );
+  }
+
+  function getSpawnGapRange() {
+    const difficulty = getDifficulty();
+    return {
+      min: config.wallGapMax - (config.wallGapMax - config.wallGapMin) * difficulty,
+      max: config.wallGapMax + 75 - 140 * difficulty
+    };
+  }
+
+  function getWallHeight() {
+    return Math.round((config.wallHeight - 14) + 20 * getDifficulty());
+  }
   function activateSlideObstacle() {
     const slideHeight = config.slideHeight;
     const slideAspect =
@@ -280,7 +304,7 @@
     }
 
     world.slide.y = world.groundY - world.slide.height;
-    const slideSpeed = Math.max(config.slideMinSpeed, world.speed + 40);
+    const slideSpeed = Math.max(config.slideMinSpeed, world.speed + 24 + getDifficulty() * 40);
     world.slide.x -= slideSpeed * dt;
     if (world.slide.x + world.slide.width < -80) {
       world.slide.active = false;
@@ -310,7 +334,7 @@
         world.score += 1;
         world.speed = Math.min(
           config.maxSpeed,
-          world.speed + config.speedGainPerCollectible
+          world.speed + getProgressiveSpeedGain()
         );
       }
     }
@@ -318,7 +342,7 @@
 
   function spawnWall(x) {
     const width = config.wallWidth;
-    const height = config.wallHeight;
+    const height = getWallHeight();
     world.walls.push({ x, width, height });
     world.collectibles.push({
       x: x + width * 0.5 + config.collectibleXOffset,
@@ -332,7 +356,8 @@
       phase: Math.random() * Math.PI * 2,
       taken: false
     });
-    world.nextSpawnX = x + width + randomBetween(config.wallGapMin, config.wallGapMax);
+    const gapRange = getSpawnGapRange();
+    world.nextSpawnX = x + width + randomBetween(gapRange.min, gapRange.max);
   }
 
   function ensureGenerated() {
@@ -358,7 +383,7 @@
   function update(dt) {
     world.elapsed += dt;
     world.cameraX += world.speed * dt;
-    world.speed = Math.min(config.maxSpeed, world.speed + dt * 2.4);
+    world.speed = Math.min(config.maxSpeed, world.speed + dt * (0.8 + getDifficulty() * 1.4));
 
     if (runner.jumpBuffer > 0) {
       runner.jumpBuffer = Math.max(0, runner.jumpBuffer - dt);
@@ -646,7 +671,6 @@
     });
 
     canvas.addEventListener("pointerdown", queueJump);
-    jumpButton.addEventListener("pointerdown", queueJump);
     actionButton.addEventListener("click", startRun);
     shareLink.addEventListener("click", (event) => {
       if (!navigator.share) {
@@ -669,7 +693,7 @@
   resetWorld();
   showOverlay(
     "Bryan's Bonkers Cruise Dash",
-    "Jump walls, then grab drinks to run faster.",
+    "Jump walls and collect drinks. Difficulty ramps up gradually.",
     "Start Run"
   );
   setupInput();

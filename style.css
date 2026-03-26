@@ -62,9 +62,8 @@ body {
   inset: 0;
   display: grid;
   place-content: center;
-  gap: 10px;
   text-align: center;
-  background: rgba(14, 28, 42, 0.28);
+  background: rgba(14, 28, 42, 0.4);
   color: #fff;
   z-index: 6;
   padding: 24px;
@@ -74,19 +73,52 @@ body {
   display: none;
 }
 
+.overlay-card {
+  width: min(92vw, 520px);
+  background: rgba(9, 20, 32, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  padding: 22px;
+  display: grid;
+  gap: 12px;
+  backdrop-filter: blur(4px);
+}
+
 .title {
   margin: 0;
-  font-size: clamp(2rem, 8vw, 3rem);
+  font-size: clamp(1.8rem, 7vw, 2.8rem);
   letter-spacing: 0.04em;
 }
 
 .subtitle {
   margin: 0;
   font-size: clamp(1rem, 4vw, 1.2rem);
+  opacity: 0.96;
+}
+
+.tips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  font-size: clamp(0.88rem, 2.9vw, 1rem);
+}
+
+.tips li {
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.overlay-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
 }
 
 #actionButton {
-  justify-self: center;
   border: none;
   border-radius: 999px;
   padding: 12px 26px;
@@ -96,6 +128,11 @@ body {
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(242, 106, 75, 0.45);
+  min-width: 170px;
+}
+
+#actionButton:hover {
+  filter: brightness(1.04);
 }
 
 #actionButton:active {
@@ -103,8 +140,13 @@ body {
   transform: translateY(1px);
 }
 
+#actionButton:focus-visible,
+.share-link:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
 .share-link {
-  justify-self: center;
   border-radius: 999px;
   padding: 10px 22px;
   color: #fff;
@@ -118,31 +160,28 @@ body {
   display: none;
 }
 
-.jump-button {
+.touch-hint {
   position: absolute;
   right: max(14px, env(safe-area-inset-right));
   bottom: max(14px, env(safe-area-inset-bottom));
-  width: 82px;
-  height: 82px;
-  border-radius: 50%;
-  border: none;
-  background: var(--panel);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
   color: var(--text);
-  font-size: 1rem;
-  font-weight: 900;
+  font-size: clamp(0.78rem, 2.3vw, 0.92rem);
+  font-weight: 700;
   box-shadow: 0 8px 20px var(--hud-shadow);
   z-index: 5;
-  opacity: 0.94;
+  pointer-events: none;
 }
 
-.jump-button:active {
-  transform: scale(0.97);
-}
+@media (max-width: 540px) {
+  .overlay {
+    padding: 16px;
+  }
 
-@media (min-width: 900px) {
-  .jump-button {
-    width: 96px;
-    height: 96px;
-    font-size: 1.1rem;
+  .overlay-card {
+    padding: 18px;
   }
 }
