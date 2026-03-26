@@ -26,16 +26,23 @@
       <div class="hud-item">Speed: <span id="speedValue">0</span></div>
     </section>
     <section class="overlay" id="overlay">
-      <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
-      <p class="subtitle">Tap, click, or press Space/Arrow Up to jump.</p>
-      <button id="actionButton" type="button">Start Run</button>
-      <a id="shareLink" class="share-link hidden" href="#" target="_blank" rel="noopener">
-        Share Score
-      </a>
+      <div class="overlay-card">
+        <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
+        <p class="subtitle">Tap, click, or press Space / Arrow Up to jump.</p>
+        <ul class="tips" aria-label="How to play">
+          <li>Collect drinks to increase your score.</li>
+          <li>Difficulty scales up gradually as your score climbs.</li>
+          <li>There is no jump button — jump anywhere on screen.</li>
+        </ul>
+        <div class="overlay-actions">
+          <button id="actionButton" type="button">Start Run</button>
+          <a id="shareLink" class="share-link hidden" href="#" target="_blank" rel="noopener">
+            Share Score
+          </a>
+        </div>
+      </div>
     </section>
-    <button id="jumpButton" class="jump-button" type="button" aria-label="Jump">
-      Jump
-    </button>
+    <p class="touch-hint" aria-hidden="true">Tap anywhere to jump</p>
   </main>
   <script src="game.js"></script>
 </body>
