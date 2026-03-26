@@ -1,13 +1,13 @@
-# Right Runner
+# Bryan's Bonkers Cruise Dash
 
 Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the right.
 
 ## Gameplay
 
-- Jump over pits.
 - Jump over walls.
-- Collect floating items while jumping.
-- Every collected item increases running speed.
+- Play as `bryan.png` as the main character.
+- Collect `drink.png` while jumping.
+- Every drink collected increases running speed.
 - Includes simple parallax background layers.
 
 ## Controls
