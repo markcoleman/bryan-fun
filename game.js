@@ -29,6 +29,7 @@
     collectibleLiftMin: 118,
     collectibleLiftMax: 144,
     collectiblePickupPadding: 24,
+    bonusSpawnChance: 0.2,
     slideTriggerScore: 12,
     slideMinSpeed: 380,
     slideHeight: 64,
@@ -96,6 +97,10 @@
       y: 0,
       width: 0,
       height: 0
+    },
+    casino: {
+      pendingPull: false,
+      pendingResume: false
     }
   };
 
@@ -145,6 +150,8 @@
     world.slide.y = 0;
     world.slide.width = 0;
     world.slide.height = 0;
+    world.casino.pendingPull = false;
+    world.casino.pendingResume = false;
 
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
@@ -195,6 +202,16 @@
 
   function startRun() {
     resetWorld();
+    world.mode = "running";
+    hideOverlay();
+  }
+
+  function resumeRunFromCasino() {
+    if (world.mode !== "casino") {
+      return;
+    }
+    world.casino.pendingPull = false;
+    world.casino.pendingResume = false;
     world.mode = "running";
     hideOverlay();
   }
@@ -331,13 +348,67 @@
       const radius = item.radius + config.collectiblePickupPadding;
       if (dx * dx + dy * dy <= radius * radius) {
         item.taken = true;
+        if (item.type === "bonus") {
+          triggerCasinoBonus();
+          return;
+        }
         world.score += 1;
-        world.speed = Math.min(
-          config.maxSpeed,
-          world.speed + getProgressiveSpeedGain()
-        );
+        world.speed = Math.min(config.maxSpeed, world.speed + getProgressiveSpeedGain());
       }
     }
+  }
+
+  function triggerCasinoBonus() {
+    world.mode = "casino";
+    world.casino.pendingPull = true;
+    world.casino.pendingResume = false;
+    showOverlay(
+      "Bonus Casino!",
+      "You found a bonus coin. Pull once to win extra points.",
+      "Pull Slot"
+    );
+  }
+
+  function evaluateSlotPull() {
+    const symbols = ["🍒", "🍋", "⭐", "7️⃣", "💎"];
+    const roll = [
+      symbols[Math.floor(Math.random() * symbols.length)],
+      symbols[Math.floor(Math.random() * symbols.length)],
+      symbols[Math.floor(Math.random() * symbols.length)]
+    ];
+    const counts = roll.reduce((memo, symbol) => {
+      memo[symbol] = (memo[symbol] || 0) + 1;
+      return memo;
+    }, {});
+    const highestMatch = Math.max(...Object.values(counts));
+    let payout = 0;
+    if (highestMatch === 3) {
+      payout = 15;
+    } else if (highestMatch === 2) {
+      payout = 7;
+    } else if (roll.includes("🍒")) {
+      payout = 3;
+    }
+    return { roll, payout };
+  }
+
+  function pullSlotMachine() {
+    if (world.mode !== "casino" || !world.casino.pendingPull) {
+      return;
+    }
+    const result = evaluateSlotPull();
+    world.score += result.payout;
+    if (result.payout > 0) {
+      world.speed = Math.min(config.maxSpeed, world.speed + result.payout * 2);
+    }
+    updateHud();
+    world.casino.pendingPull = false;
+    world.casino.pendingResume = true;
+    showOverlay(
+      "Bonus Casino Result",
+      `${result.roll.join("  ")} — You won ${result.payout} points!`,
+      "Return to Run"
+    );
   }
 
   function spawnWall(x) {
@@ -354,8 +425,24 @@
       width: config.collectibleW,
       height: config.collectibleH,
       phase: Math.random() * Math.PI * 2,
+      type: "drink",
       taken: false
     });
+    if (Math.random() < config.bonusSpawnChance) {
+      world.collectibles.push({
+        x: x + width * 0.5 - 24,
+        y:
+          world.groundY -
+          height -
+          randomBetween(config.collectibleLiftMin + 48, config.collectibleLiftMax + 68),
+        radius: 16,
+        width: 34,
+        height: 34,
+        phase: Math.random() * Math.PI * 2,
+        type: "bonus",
+        taken: false
+      });
+    }
     const gapRange = getSpawnGapRange();
     world.nextSpawnX = x + width + randomBetween(gapRange.min, gapRange.max);
   }
@@ -556,13 +643,27 @@
       }
       const drawW = item.width || config.collectibleW;
       const drawH = item.height || config.collectibleH;
-      ctx.fillStyle = "rgba(255, 225, 122, 0.33)";
+      const isBonus = item.type === "bonus";
+      ctx.fillStyle = isBonus ? "rgba(255, 210, 79, 0.4)" : "rgba(255, 225, 122, 0.33)";
       ctx.beginPath();
       ctx.arc(x, y + 2, item.radius + 11, 0, Math.PI * 2);
       ctx.fill();
 
-      if (assets.drinkReady) {
+      if (!isBonus && assets.drinkReady) {
         ctx.drawImage(assets.drink, x - drawW * 0.5, y - drawH * 0.5, drawW, drawH);
+      } else if (isBonus) {
+        ctx.fillStyle = "#ffcc33";
+        ctx.beginPath();
+        ctx.arc(x, y, item.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#cf8d00";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = "#7d4f00";
+        ctx.font = "bold 14px Trebuchet MS, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("B", x, y + 1);
       } else {
         ctx.fillStyle = "#ffd95e";
         ctx.beginPath();
@@ -671,7 +772,19 @@
     });
 
     canvas.addEventListener("pointerdown", queueJump);
-    actionButton.addEventListener("click", startRun);
+    actionButton.addEventListener("click", () => {
+      if (world.mode === "casino") {
+        if (world.casino.pendingPull) {
+          pullSlotMachine();
+          return;
+        }
+        if (world.casino.pendingResume) {
+          resumeRunFromCasino();
+          return;
+        }
+      }
+      startRun();
+    });
     shareLink.addEventListener("click", (event) => {
       if (!navigator.share) {
         return;
