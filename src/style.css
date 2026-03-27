@@ -58,6 +58,13 @@ body {
   backdrop-filter: blur(3px);
 }
 
+.hud-destination {
+  max-width: min(60vw, 360px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .hud-help {
   border: none;
   border-radius: 999px;
@@ -223,12 +230,14 @@ body {
   text-align: left;
 }
 
-.character-picker label {
+.character-picker label,
+.start-level-picker label {
   font-size: 0.9rem;
   font-weight: 700;
 }
 
-#characterSelect {
+#characterSelect,
+#startLevelSelect {
   width: 100%;
   border: none;
   border-radius: 12px;
@@ -243,6 +252,18 @@ body {
   margin: 0;
   font-size: 0.9rem;
   opacity: 0.94;
+}
+
+.start-level-picker {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.start-level-details {
+  margin: 0;
+  font-size: 0.88rem;
+  opacity: 0.9;
 }
 
 .overlay-actions {
