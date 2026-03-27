@@ -3,13 +3,14 @@
 (() => {
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
+  const splashScreen = document.getElementById("splashScreen");
+  const splashContinueButton = document.getElementById("splashContinueButton");
   const overlay = document.getElementById("overlay");
   const actionButton = document.getElementById("actionButton");
   const shareLink = document.getElementById("shareLink");
   const scoreValue = document.getElementById("scoreValue");
   const speedValue = document.getElementById("speedValue");
   const levelValue = document.getElementById("levelValue");
-  const destinationValue = document.getElementById("destinationValue");
   const nextLevelValue = document.getElementById("nextLevelValue");
   const helpButton = document.getElementById("helpButton");
   const notesDialog = document.getElementById("notesDialog");
@@ -22,6 +23,8 @@
   const startLevelDetails = document.getElementById("startLevelDetails");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
+  const uiPixelFont = "\"Press Start 2P\", \"Courier New\", monospace";
+  const uiMonoFont = "\"VT323\", \"Courier New\", monospace";
 
   const config = {
     gravity: 1820,
@@ -236,8 +239,19 @@
   let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "1.8.0",
+    currentVersion: "1.9.0",
     notes: [
+      {
+        version: "1.9.0",
+        date: "2026-03-27",
+        title: "Splash screen + streamlined HUD/menu",
+        bullets: [
+          "Added a dedicated opening splash screen using bryan-splash.png before the main menu.",
+          "Simplified the start screen to a single-column setup flow: Character, Level, Help, then Start Run.",
+          "Removed lower-value in-run HUD items so core stats remain focused during gameplay.",
+          "Updated game-over behavior so Run Again returns to the main menu instead of instantly restarting."
+        ]
+      },
       {
         version: "1.2.0",
         date: "2026-03-22",
@@ -319,6 +333,10 @@
     storageKey: "bbcd:maxUnlockedLevel",
     maxUnlockedLevel: 1,
     selectedStartLevel: 1
+  };
+  const mainMenuCopy = {
+    title: "Bryan's Bonkers Cruise Dash",
+    subtitle: "Jump walls, collect pickups, and unlock destinations from Existing Cruise Deck to Miami."
   };
   const shareMeta = {
     ogImage: document.querySelector('meta[property="og:image"]'),
@@ -756,7 +774,15 @@
   function renderNotesList(notes) {
     notesScrollRegion.innerHTML = "";
     const fragment = document.createDocumentFragment();
-    notes.forEach((note) => {
+    const sortedNotes = [...notes].sort((a, b) => {
+      const versionDiff = compareVersions(b.version, a.version);
+      if (versionDiff !== 0) {
+        return versionDiff;
+      }
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    });
+
+    sortedNotes.forEach((note) => {
       const section = document.createElement("section");
       section.className = "notes-version";
 
@@ -999,10 +1025,12 @@
     shareLink.href = buildShareUrl(score);
   }
 
-  function showOverlay(title, subtitle, buttonText, shareScore = null) {
+  function showOverlay(title, subtitle, buttonText, shareScore = null, options = {}) {
+    const { layout = "compact" } = options;
     titleEl.textContent = title;
     subtitleEl.textContent = subtitle;
     actionButton.textContent = buttonText;
+    overlay.dataset.layout = layout;
     if (Number.isFinite(shareScore)) {
       showShareLink(shareScore);
     } else {
@@ -1014,6 +1042,29 @@
 
   function hideOverlay() {
     overlay.classList.add("hidden");
+  }
+
+  function showMainMenu() {
+    resetWorld();
+    applyStartingLevel(getSelectedStartLevelId());
+    world.mode = "ready";
+    showOverlay(mainMenuCopy.title, mainMenuCopy.subtitle, "Start Run", null, { layout: "start" });
+  }
+
+  function showSplashScreen() {
+    world.mode = "splash";
+    hideOverlay();
+    splashScreen.classList.remove("hidden");
+    splashContinueButton.focus();
+  }
+
+  function dismissSplashToMainMenu() {
+    if (world.mode !== "splash") {
+      return;
+    }
+    splashScreen.classList.add("hidden");
+    showMainMenu();
+    maybeShowWhatsNew();
   }
 
   function startRun() {
@@ -1139,6 +1190,10 @@
   }
 
   function queueJump() {
+    if (world.mode === "splash") {
+      dismissSplashToMainMenu();
+      return;
+    }
     if (world.mode === "ready" || world.mode === "gameOver") {
       startRun();
       return;
@@ -1405,7 +1460,6 @@
       ? Math.max(0, level.nextScore - world.score)
       : null;
     levelValue.textContent = String(level.id);
-    destinationValue.textContent = level.name;
     nextLevelValue.textContent =
       pointsToNext === null ? "Final destination reached" : `${pointsToNext} pts to L${level.id + 1}`;
   }
@@ -1785,7 +1839,7 @@
         ctx.lineWidth = 3;
         ctx.stroke();
         ctx.fillStyle = "#7d4f00";
-        ctx.font = "bold 14px Trebuchet MS, sans-serif";
+        ctx.font = `700 14px ${uiPixelFont}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("B", x, y + 1);
@@ -1795,7 +1849,7 @@
         ctx.arc(x, y, item.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#4b3a11";
-        ctx.font = "bold 14px Trebuchet MS, sans-serif";
+        ctx.font = "700 14px \"Segoe UI Emoji\", \"Apple Color Emoji\", \"Noto Color Emoji\", sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(preset.collectibleGlyph, x, y + 1);
@@ -1961,7 +2015,7 @@
       14
     );
     ctx.fillStyle = "#2f0f1f";
-    ctx.font = "bold 38px Trebuchet MS, sans-serif";
+    ctx.font = `700 32px ${uiPixelFont}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("777", world.width * 0.5, fallbackY + fallbackH * 0.33);
@@ -1983,32 +2037,6 @@
     ctx.fill();
   }
 
-  function drawLevelProgressTrack() {
-    const level = getCurrentLevel();
-    const progress = getCurrentLevelProgress();
-    const trackWidth = Math.min(280, world.width * 0.5);
-    const trackHeight = 13;
-    const x = world.width - trackWidth - 24;
-    const y = 22;
-    const fillWidth = Math.max(0, (trackWidth - 4) * progress);
-
-    ctx.save();
-    ctx.fillStyle = "rgba(11, 24, 33, 0.28)";
-    fillRoundedRect(x, y, trackWidth, trackHeight, 999);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
-    fillRoundedRect(x + 2, y + 2, fillWidth, trackHeight - 4, 999);
-    ctx.fillStyle = "rgba(16, 28, 40, 0.72)";
-    ctx.font = "700 12px Trebuchet MS, sans-serif";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(
-      Number.isFinite(level.nextScore) ? `Level ${level.id} to ${level.id + 1}` : "Final Level",
-      x + trackWidth,
-      y - 5
-    );
-    ctx.restore();
-  }
-
   function drawLevelAnnouncement() {
     if (world.levelAnnouncement.timer <= 0 || !world.levelAnnouncement.text) {
       return;
@@ -2016,23 +2044,23 @@
     const fadeIn = Math.min(1, (config.levelAnnouncementDuration - world.levelAnnouncement.timer) / 0.24);
     const fadeOut = Math.min(1, world.levelAnnouncement.timer / 0.4);
     const alpha = Math.min(fadeIn, fadeOut);
-    const cardWidth = Math.min(420, world.width * 0.82);
-    const cardHeight = 58;
+    const cardWidth = Math.min(620, world.width * 0.9);
+    const cardHeight = 66;
     const x = world.width * 0.5 - cardWidth * 0.5;
     const y = world.height * 0.13;
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, alpha);
-    ctx.fillStyle = "rgba(9, 26, 39, 0.78)";
-    fillRoundedRect(x, y, cardWidth, cardHeight, 16);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x + 1, y + 1, cardWidth - 2, cardHeight - 2);
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = "rgba(5, 16, 26, 0.95)";
+    ctx.fillRect(x, y, cardWidth, cardHeight);
+    ctx.strokeStyle = "rgba(255, 230, 109, 0.95)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x + 1.5, y + 1.5, cardWidth - 3, cardHeight - 3);
+    ctx.fillStyle = "#ebfff8";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "800 22px Trebuchet MS, sans-serif";
-    ctx.fillText(world.levelAnnouncement.text, world.width * 0.5, y + cardHeight * 0.52);
+    ctx.font = `30px ${uiMonoFont}`;
+    ctx.fillText(world.levelAnnouncement.text.toUpperCase(), world.width * 0.5, y + cardHeight * 0.53, cardWidth - 18);
     ctx.restore();
   }
 
@@ -2058,7 +2086,6 @@
     drawCollectibles();
     drawRunner();
     drawRescueDoctor();
-    drawLevelProgressTrack();
     drawLevelAnnouncement();
   }
 
@@ -2085,6 +2112,17 @@
 
   function setupInput() {
     window.addEventListener("keydown", (event) => {
+      if (
+        world.mode === "splash" &&
+        (event.code === "Space" || event.code === "ArrowUp" || event.code === "KeyW" || event.code === "Enter")
+      ) {
+        event.preventDefault();
+        if (!event.repeat) {
+          dismissSplashToMainMenu();
+        }
+        return;
+      }
+
       if (event.code === "Space" || event.code === "ArrowUp" || event.code === "KeyW") {
         event.preventDefault();
         if (!event.repeat) {
@@ -2094,6 +2132,8 @@
     });
 
     canvas.addEventListener("pointerdown", queueJump);
+    splashScreen.addEventListener("pointerdown", dismissSplashToMainMenu);
+    splashContinueButton.addEventListener("click", dismissSplashToMainMenu);
     actionButton.addEventListener("click", () => {
       if (world.mode === "casino") {
         if (world.casino.pendingPull) {
@@ -2104,6 +2144,10 @@
           resumeRunFromCasino();
           return;
         }
+      }
+      if (world.mode === "gameOver") {
+        showMainMenu();
+        return;
       }
       startRun();
     });
@@ -2138,7 +2182,8 @@
     helpButton.addEventListener("click", () => {
       openReleaseNotes({
         notes: [...releaseState.notes],
-        introText: "Browse all release notes. Use Tab to move through controls.",
+        introText:
+          "Mission guide: Collect drinks, dodge walls, and use bonus coins for a casino slot pull. Level milestones are 8, 18, 31, and 46 points. Browse release notes below.",
         triggerEl: helpButton
       });
     });
@@ -2157,6 +2202,10 @@
     startLevelSelect.addEventListener("change", (event) => {
       progressionState.selectedStartLevel = normalizeLevelId(event.target.value, 1);
       updateStartLevelDetails();
+      if (world.mode !== "running" && world.mode !== "casino" && world.mode !== "rescue") {
+        applyStartingLevel(progressionState.selectedStartLevel);
+        world.mode = "ready";
+      }
     });
   }
 
@@ -2173,14 +2222,8 @@
   parseSharedRunnerFromUrl();
   hydrateProgressionState();
   unlockLevel(1);
-  resetWorld();
-  showOverlay(
-    "Bryan's Bonkers Cruise Dash",
-    "Jump walls, collect pickups, and unlock destinations from Existing Cruise Deck to Miami.",
-    "Start Run"
-  );
   updateCharacterUi();
   setupInput();
-  maybeShowWhatsNew();
+  showSplashScreen();
   requestAnimationFrame(onFrame);
 })();
