@@ -24,6 +24,9 @@
     <section class="hud" aria-live="polite">
       <div class="hud-item">Score: <span id="scoreValue">0</span></div>
       <div class="hud-item">Speed: <span id="speedValue">0</span></div>
+      <button id="helpButton" class="hud-help" type="button" aria-haspopup="dialog" aria-controls="notesDialog">
+        Help &amp; Notes
+      </button>
     </section>
     <section class="overlay" id="overlay">
       <div class="overlay-card">
@@ -49,6 +52,23 @@
           <a id="shareLink" class="share-link hidden" href="#" target="_blank" rel="noopener">
             Share Score
           </a>
+        </div>
+      </div>
+    </section>
+    <section
+      id="notesDialog"
+      class="notes-dialog hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="notesTitle"
+      aria-describedby="notesIntro"
+    >
+      <div class="notes-card">
+        <h2 id="notesTitle">Release Notes</h2>
+        <p id="notesIntro" class="notes-intro"></p>
+        <div id="notesScrollRegion" class="notes-scroll" tabindex="0" aria-label="Release notes list"></div>
+        <div class="notes-actions">
+          <button id="notesCloseButton" type="button">Close</button>
         </div>
       </div>
     </section>

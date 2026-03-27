@@ -8,6 +8,11 @@
   const shareLink = document.getElementById("shareLink");
   const scoreValue = document.getElementById("scoreValue");
   const speedValue = document.getElementById("speedValue");
+  const helpButton = document.getElementById("helpButton");
+  const notesDialog = document.getElementById("notesDialog");
+  const notesIntro = document.getElementById("notesIntro");
+  const notesScrollRegion = document.getElementById("notesScrollRegion");
+  const notesCloseButton = document.getElementById("notesCloseButton");
   const characterSelect = document.getElementById("characterSelect");
   const characterDetails = document.getElementById("characterDetails");
   const titleEl = overlay.querySelector(".title");
@@ -92,6 +97,44 @@
 
   const characterAssets = {};
   let currentCharacter = "bryan";
+  const releaseState = {
+    storageKey: "bbcd:lastSeenVersion",
+    currentVersion: "1.4.0",
+    notes: [
+      {
+        version: "1.2.0",
+        date: "2026-03-22",
+        title: "Casino bonus event",
+        bullets: [
+          "Added bonus coin pickups with a one-pull slot machine reward.",
+          "Winnings now grant extra points and a burst of speed.",
+          "Created smoother transitions between running and bonus moments."
+        ]
+      },
+      {
+        version: "1.3.0",
+        date: "2026-03-25",
+        title: "Character roster expansion",
+        bullets: [
+          "Added Barbra and Kyle as playable runners with unique movement tuning.",
+          "Updated character picker details so each style is easier to understand.",
+          "Improved collectible rendering with character-specific artwork fallbacks."
+        ]
+      },
+      {
+        version: "1.4.0",
+        date: "2026-03-27",
+        title: "What’s New + help release notes",
+        bullets: [
+          "Added an accessible What’s New prompt that appears when your saved version is older.",
+          "Stored the latest seen version in local storage to avoid repeat prompts.",
+          "Added a Help & Notes menu option with a scrollable release notes view."
+        ]
+      }
+    ],
+    isOpen: false,
+    triggerEl: null
+  };
 
   function loadImageWithReadyFlag(src) {
     const image = new Image();
@@ -175,6 +218,131 @@
 
   function randomBetween(min, max) {
     return min + Math.random() * (max - min);
+  }
+
+  function parseVersion(version) {
+    const parts = String(version || "")
+      .split(".")
+      .map((part) => Number.parseInt(part, 10));
+    if (parts.length !== 3 || parts.some((part) => Number.isNaN(part) || part < 0)) {
+      return null;
+    }
+    return parts;
+  }
+
+  function compareVersions(a, b) {
+    const parsedA = parseVersion(a);
+    const parsedB = parseVersion(b);
+    if (!parsedA || !parsedB) {
+      return 0;
+    }
+    for (let i = 0; i < 3; i += 1) {
+      if (parsedA[i] > parsedB[i]) {
+        return 1;
+      }
+      if (parsedA[i] < parsedB[i]) {
+        return -1;
+      }
+    }
+    return 0;
+  }
+
+  function readLastSeenVersion() {
+    try {
+      return window.localStorage.getItem(releaseState.storageKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveCurrentVersion() {
+    try {
+      window.localStorage.setItem(releaseState.storageKey, releaseState.currentVersion);
+    } catch (_) {
+      // Local storage may be blocked; silently continue without persistence.
+    }
+  }
+
+  function getNotesSince(version) {
+    if (!version) {
+      return [...releaseState.notes];
+    }
+    return releaseState.notes.filter(
+      (note) =>
+        compareVersions(note.version, version) > 0 &&
+        compareVersions(note.version, releaseState.currentVersion) <= 0
+    );
+  }
+
+  function renderNotesList(notes) {
+    notesScrollRegion.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    notes.forEach((note) => {
+      const section = document.createElement("section");
+      section.className = "notes-version";
+
+      const heading = document.createElement("h3");
+      heading.textContent = `v${note.version} — ${note.title}`;
+      section.appendChild(heading);
+
+      const date = document.createElement("p");
+      date.textContent = `Released: ${note.date}`;
+      section.appendChild(date);
+
+      const list = document.createElement("ul");
+      note.bullets.forEach((bullet) => {
+        const item = document.createElement("li");
+        item.textContent = bullet;
+        list.appendChild(item);
+      });
+      section.appendChild(list);
+      fragment.appendChild(section);
+    });
+    notesScrollRegion.appendChild(fragment);
+  }
+
+  function openReleaseNotes(options = {}) {
+    const { notes = [], introText = "", triggerEl = null, markSeen = false } = options;
+    const safeNotes = notes.length ? notes : [...releaseState.notes];
+    notesIntro.textContent = introText || "Latest improvements and changes.";
+    renderNotesList(safeNotes);
+    notesDialog.classList.remove("hidden");
+    releaseState.isOpen = true;
+    releaseState.triggerEl = triggerEl;
+    notesCloseButton.focus();
+    if (markSeen) {
+      saveCurrentVersion();
+    }
+  }
+
+  function closeReleaseNotes() {
+    if (!releaseState.isOpen) {
+      return;
+    }
+    notesDialog.classList.add("hidden");
+    releaseState.isOpen = false;
+    if (releaseState.triggerEl) {
+      releaseState.triggerEl.focus();
+    }
+    releaseState.triggerEl = null;
+  }
+
+  function maybeShowWhatsNew() {
+    const lastSeenVersion = readLastSeenVersion();
+    if (lastSeenVersion && compareVersions(lastSeenVersion, releaseState.currentVersion) >= 0) {
+      return;
+    }
+    const unseenNotes = getNotesSince(lastSeenVersion);
+    const hasSavedVersion = Boolean(lastSeenVersion);
+    const introText = hasSavedVersion && unseenNotes.length
+      ? `You are now on v${releaseState.currentVersion}. Here is what changed since v${lastSeenVersion}.`
+      : "Welcome! Here are the full release notes.";
+    openReleaseNotes({
+      notes: unseenNotes.length ? unseenNotes : [...releaseState.notes],
+      introText,
+      triggerEl: helpButton,
+      markSeen: true
+    });
   }
 
   function resizeCanvas() {
@@ -881,6 +1049,19 @@
         .catch(() => {});
     });
     window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && releaseState.isOpen) {
+        closeReleaseNotes();
+      }
+    });
+    helpButton.addEventListener("click", () => {
+      openReleaseNotes({
+        notes: [...releaseState.notes],
+        introText: "Browse all release notes. Use Tab to move through controls.",
+        triggerEl: helpButton
+      });
+    });
+    notesCloseButton.addEventListener("click", closeReleaseNotes);
     characterSelect.addEventListener("change", (event) => {
       currentCharacter = event.target.value;
       updateCharacterUi();
@@ -905,5 +1086,6 @@
   );
   updateCharacterUi();
   setupInput();
+  maybeShowWhatsNew();
   requestAnimationFrame(onFrame);
 })();
