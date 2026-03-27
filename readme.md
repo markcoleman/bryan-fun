@@ -5,15 +5,15 @@ Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the r
 ## Gameplay
 
 - Jump over walls.
-- Play as `assets/images/bryan.png` as the main character.
-- Collect `assets/images/drink.png` while jumping.
+- Play as `assets/images/characters/bryan.png` as the main character.
+- Collect `assets/images/items/drink.png` while jumping.
 - Every drink collected increases running speed.
 - Destination leveling progression: Level 1 Existing Cruise Deck, Level 2 Island Adventure with Adults-Only Pool, Level 3 Bahamas, Level 4 Cruise Deck, Level 5 Miami.
 - Reaching a level milestone restarts the stage layout at the newly unlocked destination while preserving your current speed momentum.
 - Each level uses a different full-screen background image.
-- Level 2 uses a parallax beach setup: `assets/images/beach-background.png` (background) and `assets/images/beach.png` (ground).
-- Level 3 uses: `assets/images/beach-background.png` (background) and `assets/images/bahamas.png` (ground).
-- Level 5 uses: `assets/images/miami-background.png` (background) and `assets/images/miami.png` (ground).
+- Level 2 uses a parallax beach setup: `assets/images/backgrounds/beach-background.png` (background) and `assets/images/grounds/beach.png` (ground).
+- Level 3 uses: `assets/images/backgrounds/beach-background.png` (background) and `assets/images/grounds/bahamas.png` (ground).
+- Level 5 uses: `assets/images/backgrounds/miami-background.png` (background) and `assets/images/grounds/miami.png` (ground).
 - Level 4 features a cruise ship pass that starts on the right and sails left across the scene.
 - The slide obstacle is tuned for fairness and appears only in Level 2.
 - Unlocked levels persist in local storage and can be selected as the next run's starting level.
@@ -24,7 +24,14 @@ Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the r
 - `index.html`: app shell and UI markup.
 - `src/game.js`: gameplay logic and rendering.
 - `src/style.css`: layout and visual styles.
-- `assets/images/`: all sprite and background art.
+- `assets/images/`: organized art assets by category:
+  - `characters/`: player runner sprites
+  - `items/`: pickups and obstacle sprites
+  - `backgrounds/`: layered background textures
+  - `grounds/`: ground/deck textures
+  - `levels/`: SVG destination backdrops
+  - `ui/`: splash/menu art
+  - `npc/`: non-player character sprites
 
 ## Controls
 
@@ -40,6 +47,19 @@ Open [index.html](/Users/markcoleman/Development/github/bryan-fun/index.html) in
 
 - CI workflow: [ci.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/ci.yml)
   - Verifies required files exist.
+  - Installs npm dependencies.
   - Checks JavaScript syntax with `node --check`.
+  - Runs unit tests with coverage via `npm test`.
 - Deployment workflow: [deploy-pages.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/deploy-pages.yml)
   - Publishes the static site to GitHub Pages on pushes to `main`.
+
+
+## Performance and delivery optimizations
+
+- Non-critical large textures are now lazy-loaded at runtime to reduce initial page payload and improve first render time.
+- Shared gameplay math and version helpers live in `src/game-logic.js` to keep core runtime logic cleaner and easier to maintain/test.
+
+## Testing
+
+- `npm test` runs the Vitest suite with coverage output for `src/game-logic.js`.
+- `vitest.config.js` enforces minimum coverage thresholds for statements, lines, functions, and branches.
