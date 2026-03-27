@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="sky2" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#66e3d9"/>
+      <stop offset="55%" stop-color="#bff6ea"/>
+      <stop offset="100%" stop-color="#ffe9bd"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky2)"/>
+  <rect y="710" width="1920" height="370" fill="#2aa5b2"/>
+  <ellipse cx="960" cy="700" rx="620" ry="160" fill="#f3d8a0"/>
+  <ellipse cx="960" cy="710" rx="420" ry="112" fill="#5fd2cf"/>
+  <ellipse cx="960" cy="710" rx="315" ry="84" fill="#7be6df"/>
+  <rect y="860" width="1920" height="220" fill="#d5a46c"/>
+  <g fill="#1d8e78" opacity="0.72">
+    <path d="M210 860 h36 l-10 -180 h-16 z"/>
+    <path d="M260 860 h36 l-10 -220 h-16 z"/>
+    <path d="M1510 860 h36 l-10 -190 h-16 z"/>
+    <path d="M1570 860 h36 l-10 -235 h-16 z"/>
+  </g>
+  <g stroke="#c9935b" stroke-width="10" opacity="0.4">
+    <path d="M0 930 H1920"/>
+    <path d="M0 990 H1920"/>
+    <path d="M0 1040 H1920"/>
+  </g>
+</svg>

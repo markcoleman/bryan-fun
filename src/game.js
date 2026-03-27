@@ -8,6 +8,9 @@
   const shareLink = document.getElementById("shareLink");
   const scoreValue = document.getElementById("scoreValue");
   const speedValue = document.getElementById("speedValue");
+  const levelValue = document.getElementById("levelValue");
+  const destinationValue = document.getElementById("destinationValue");
+  const nextLevelValue = document.getElementById("nextLevelValue");
   const helpButton = document.getElementById("helpButton");
   const notesDialog = document.getElementById("notesDialog");
   const notesIntro = document.getElementById("notesIntro");
@@ -15,6 +18,8 @@
   const notesCloseButton = document.getElementById("notesCloseButton");
   const characterSelect = document.getElementById("characterSelect");
   const characterDetails = document.getElementById("characterDetails");
+  const startLevelSelect = document.getElementById("startLevelSelect");
+  const startLevelDetails = document.getElementById("startLevelDetails");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
 
@@ -37,18 +42,26 @@
     collectibleLiftMax: 144,
     collectiblePickupPadding: 24,
     bonusSpawnChance: 0.2,
-    slideTriggerScore: 12,
-    slideMinSpeed: 380,
-    slideHeight: 64,
+    slideTriggerScore: 14,
+    slideMinSpeed: 250,
+    slideHeight: 54,
     deckWalkableRatio: 0.38,
     deckMinTileHeight: 210,
     rescueChance: 0.38,
     rescueDoctorHeight: 124,
     rescueDoctorSpeed: 520,
     rescueReviveHold: 0.55,
-    rescuePostInvulnerability: 1.4
+    rescuePostInvulnerability: 1.4,
+    levelAnnouncementDuration: 2.35
   };
   const imagePath = (fileName) => `assets/images/${fileName}`;
+  const levelBackgroundSources = [
+    imagePath("level-1-existing-cruise.svg"),
+    imagePath("level-2-island-adventure.svg"),
+    imagePath("level-3-bahamas.svg"),
+    imagePath("level-4-cruise-deck.svg"),
+    imagePath("level-5-miami.svg")
+  ];
 
   const assets = {
     slide: new Image(),
@@ -57,13 +70,103 @@
     casinoBackground: new Image(),
     slotMachine: new Image(),
     rescueDoctor: new Image(),
+    beachBackground: new Image(),
+    beachGround: new Image(),
+    bahamasGround: new Image(),
+    miamiBackground: new Image(),
+    miamiGround: new Image(),
+    levelBackgrounds: levelBackgroundSources.map(() => new Image()),
     slideReady: false,
     deckReady: false,
     umbrellaReady: false,
     casinoBackgroundReady: false,
     slotMachineReady: false,
-    rescueDoctorReady: false
+    rescueDoctorReady: false,
+    beachBackgroundReady: false,
+    beachGroundReady: false,
+    bahamasGroundReady: false,
+    miamiBackgroundReady: false,
+    miamiGroundReady: false,
+    levelBackgroundsReady: levelBackgroundSources.map(() => false)
   };
+
+  const levels = [
+    {
+      id: 1,
+      name: "Existing Cruise Deck",
+      nextScore: 8,
+      difficulty: 0.08,
+      theme: {
+        skyTop: "#96dfff",
+        skyMid: "#d3f2ff",
+        skyBottom: "#f8efcb",
+        layerFar: "#cfe6bf",
+        layerNear: "#a9d095",
+        ground: "#e7d5a6",
+        stripe: "rgba(196, 154, 80, 0.35)"
+      }
+    },
+    {
+      id: 2,
+      name: "Island Adventure with Adults-Only Pool",
+      nextScore: 18,
+      difficulty: 0.24,
+      theme: {
+        skyTop: "#63ddd8",
+        skyMid: "#bff7ec",
+        skyBottom: "#fef0be",
+        layerFar: "#9dd9b4",
+        layerNear: "#77bc97",
+        ground: "#dcc497",
+        stripe: "rgba(111, 164, 123, 0.34)"
+      }
+    },
+    {
+      id: 3,
+      name: "Bahamas",
+      nextScore: 31,
+      difficulty: 0.42,
+      theme: {
+        skyTop: "#45b8f4",
+        skyMid: "#99e1ff",
+        skyBottom: "#ffe5b1",
+        layerFar: "#8fd5c3",
+        layerNear: "#5eb9a7",
+        ground: "#d6b884",
+        stripe: "rgba(119, 138, 93, 0.32)"
+      }
+    },
+    {
+      id: 4,
+      name: "Cruise Deck",
+      nextScore: 46,
+      difficulty: 0.6,
+      theme: {
+        skyTop: "#ffb16d",
+        skyMid: "#ffd5a8",
+        skyBottom: "#fde4c4",
+        layerFar: "#d6be8e",
+        layerNear: "#ba9c6d",
+        ground: "#c89d64",
+        stripe: "rgba(150, 101, 58, 0.34)"
+      }
+    },
+    {
+      id: 5,
+      name: "Miami",
+      nextScore: null,
+      difficulty: 0.78,
+      theme: {
+        skyTop: "#ff7e73",
+        skyMid: "#ffb29f",
+        skyBottom: "#ffd5c8",
+        layerFar: "#d89bcf",
+        layerNear: "#a977c4",
+        ground: "#ca9b79",
+        stripe: "rgba(122, 74, 121, 0.35)"
+      }
+    }
+  ];
 
   const characterPresets = {
     bryan: {
@@ -133,7 +236,7 @@
   let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "1.6.0",
+    currentVersion: "1.8.0",
     notes: [
       {
         version: "1.2.0",
@@ -187,10 +290,35 @@
           "Updated share behavior so Web Share uses the selected runner image instead of always defaulting to Bryan.",
           "Share links now include the selected runner so shared URLs reopen with the right character."
         ]
+      },
+      {
+        version: "1.7.0",
+        date: "2026-03-27",
+        title: "Destination leveling system",
+        bullets: [
+          "Added five unlockable destinations with score milestones: Existing Cruise Deck, Island Adventure with Adults-Only Pool, Bahamas, Cruise Deck, and Miami.",
+          "Added HUD tracking for current level, destination, and exact points needed for the next level.",
+          "Adjusted difficulty to scale by level progression so each destination remains obtainable while still feeling faster and tougher over time."
+        ]
+      },
+      {
+        version: "1.8.0",
+        date: "2026-03-27",
+        title: "Persistent level unlocks + start level select",
+        bullets: [
+          "Unlocked levels are now saved in local storage, so progression persists across sessions.",
+          "Added a start-level picker on the start screen that lets you begin from any unlocked level.",
+          "Starting from an unlocked level now seeds score to that level threshold while keeping core run speed behavior unchanged."
+        ]
       }
     ],
     isOpen: false,
     triggerEl: null
+  };
+  const progressionState = {
+    storageKey: "bbcd:maxUnlockedLevel",
+    maxUnlockedLevel: 1,
+    selectedStartLevel: 1
   };
   const shareMeta = {
     ogImage: document.querySelector('meta[property="og:image"]'),
@@ -238,6 +366,11 @@
   assets.casinoBackground.src = imagePath("casino.png");
   assets.slotMachine.src = imagePath("slot-machine.png");
   assets.rescueDoctor.src = imagePath("dr-m.png");
+  assets.beachBackground.src = imagePath("beach-background.png");
+  assets.beachGround.src = imagePath("beach.png");
+  assets.bahamasGround.src = imagePath("bahamas.png");
+  assets.miamiBackground.src = imagePath("miami-background.png");
+  assets.miamiGround.src = imagePath("miami.png");
   assets.slide.onload = () => {
     assets.slideReady = true;
   };
@@ -256,6 +389,27 @@
   assets.rescueDoctor.onload = () => {
     assets.rescueDoctorReady = true;
   };
+  assets.beachBackground.onload = () => {
+    assets.beachBackgroundReady = true;
+  };
+  assets.beachGround.onload = () => {
+    assets.beachGroundReady = true;
+  };
+  assets.bahamasGround.onload = () => {
+    assets.bahamasGroundReady = true;
+  };
+  assets.miamiBackground.onload = () => {
+    assets.miamiBackgroundReady = true;
+  };
+  assets.miamiGround.onload = () => {
+    assets.miamiGroundReady = true;
+  };
+  levelBackgroundSources.forEach((source, index) => {
+    assets.levelBackgrounds[index].onload = () => {
+      assets.levelBackgroundsReady[index] = true;
+    };
+    assets.levelBackgrounds[index].src = source;
+  });
 
   const world = {
     mode: "ready",
@@ -265,8 +419,15 @@
     cameraX: 0,
     speed: config.startSpeed,
     score: 0,
+    levelIndex: 0,
+    pendingLevelRestart: false,
     lastTime: 0,
     elapsed: 0,
+    levelElapsed: 0,
+    levelAnnouncement: {
+      text: "",
+      timer: 0
+    },
     walls: [],
     collectibles: [],
     nextSpawnX: 0,
@@ -290,7 +451,8 @@
     },
     casino: {
       pendingPull: false,
-      pendingResume: false
+      pendingResume: false,
+      levelRestartQueued: false
     },
     invulnerableTime: 0
   };
@@ -316,6 +478,225 @@
 
   function randomBetween(min, max) {
     return min + Math.random() * (max - min);
+  }
+
+  function getCurrentLevel() {
+    return levels[Math.max(0, Math.min(levels.length - 1, world.levelIndex))];
+  }
+
+  function normalizeLevelId(value, fallback = 1) {
+    const parsed = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(parsed)) {
+      return fallback;
+    }
+    return Math.max(1, Math.min(levels.length, parsed));
+  }
+
+  function readMaxUnlockedLevel() {
+    try {
+      return normalizeLevelId(
+        window.localStorage.getItem(progressionState.storageKey),
+        1
+      );
+    } catch (_) {
+      return 1;
+    }
+  }
+
+  function saveMaxUnlockedLevel(levelId) {
+    try {
+      window.localStorage.setItem(
+        progressionState.storageKey,
+        String(normalizeLevelId(levelId, progressionState.maxUnlockedLevel))
+      );
+    } catch (_) {
+      // Local storage may be blocked; continue without persistence.
+    }
+  }
+
+  function getSelectedStartLevelId() {
+    return normalizeLevelId(startLevelSelect?.value || progressionState.selectedStartLevel, 1);
+  }
+
+  function updateStartLevelDetails() {
+    const levelId = getSelectedStartLevelId();
+    const levelIndex = levelId - 1;
+    const level = levels[levelIndex];
+    const threshold = getLevelStartScore(levelIndex);
+    const intro = threshold > 0 ? `Starts at ${threshold} score.` : "Starts fresh at score 0.";
+    startLevelDetails.textContent = `${level.name}. ${intro}`;
+  }
+
+  function refreshStartLevelOptions() {
+    const maxUnlocked = normalizeLevelId(progressionState.maxUnlockedLevel, 1);
+    const selected = Math.min(
+      normalizeLevelId(progressionState.selectedStartLevel, 1),
+      maxUnlocked
+    );
+
+    startLevelSelect.innerHTML = "";
+    for (let levelId = 1; levelId <= maxUnlocked; levelId += 1) {
+      const option = document.createElement("option");
+      option.value = String(levelId);
+      option.textContent = `Level ${levelId} - ${levels[levelId - 1].name}`;
+      startLevelSelect.appendChild(option);
+    }
+
+    progressionState.selectedStartLevel = selected;
+    startLevelSelect.value = String(selected);
+    updateStartLevelDetails();
+  }
+
+  function unlockLevel(levelId) {
+    const safeLevelId = normalizeLevelId(levelId, 1);
+    if (safeLevelId <= progressionState.maxUnlockedLevel) {
+      return;
+    }
+    progressionState.maxUnlockedLevel = safeLevelId;
+    saveMaxUnlockedLevel(safeLevelId);
+    refreshStartLevelOptions();
+  }
+
+  function hydrateProgressionState() {
+    progressionState.maxUnlockedLevel = readMaxUnlockedLevel();
+    progressionState.selectedStartLevel = progressionState.maxUnlockedLevel;
+    refreshStartLevelOptions();
+  }
+
+  function getCurrentTheme() {
+    return getCurrentLevel().theme || levels[0].theme;
+  }
+
+  function isParallaxTextureLevel() {
+    return world.levelIndex === 1 || world.levelIndex === 2 || world.levelIndex === 4;
+  }
+
+  function getParallaxBackgroundTexture() {
+    if ((world.levelIndex === 1 || world.levelIndex === 2) && assets.beachBackgroundReady) {
+      return assets.beachBackground;
+    }
+    if (world.levelIndex === 4 && assets.miamiBackgroundReady) {
+      return assets.miamiBackground;
+    }
+    return null;
+  }
+
+  function getParallaxBackgroundSpeed() {
+    if (world.levelIndex === 4) {
+      return 0.14;
+    }
+    return 0.2;
+  }
+
+  function getParallaxGroundTexture() {
+    if (world.levelIndex === 1 && assets.beachGroundReady) {
+      return assets.beachGround;
+    }
+    if (world.levelIndex === 2 && assets.bahamasGroundReady) {
+      return assets.bahamasGround;
+    }
+    if (world.levelIndex === 4 && assets.miamiGroundReady) {
+      return assets.miamiGround;
+    }
+    return null;
+  }
+
+  function isSlideObstacleLevel() {
+    return world.levelIndex === 1;
+  }
+
+  function getLevelStartScore(index = world.levelIndex) {
+    if (index <= 0) {
+      return 0;
+    }
+    const previousTarget = levels[index - 1].nextScore;
+    return Number.isFinite(previousTarget) ? previousTarget : 0;
+  }
+
+  function getCurrentLevelProgress() {
+    const level = getCurrentLevel();
+    const levelStart = getLevelStartScore();
+    if (!Number.isFinite(level.nextScore)) {
+      return Math.min(1, Math.max(0, (world.score - levelStart) / 18));
+    }
+    const span = Math.max(1, level.nextScore - levelStart);
+    return Math.max(0, Math.min(1, (world.score - levelStart) / span));
+  }
+
+  function announceLevelUp(level) {
+    world.levelAnnouncement.text = `Level ${level.id}: ${level.name}`;
+    world.levelAnnouncement.timer = config.levelAnnouncementDuration;
+  }
+
+  function restartStageForCurrentLevel() {
+    world.cameraX = 0;
+    world.walls.length = 0;
+    world.collectibles.length = 0;
+    world.nextSpawnX = world.width * 0.9;
+    world.slide.active = false;
+    world.slide.hasSpawned = false;
+    world.slide.x = 0;
+    world.slide.y = 0;
+    world.slide.width = 0;
+    world.slide.height = 0;
+    world.rescue.active = false;
+    world.rescue.stage = "idle";
+    world.rescue.doctorX = 0;
+    world.rescue.doctorY = 0;
+    world.rescue.doctorWidth = 0;
+    world.rescue.doctorHeight = 0;
+    world.rescue.targetX = 0;
+    world.rescue.holdTimer = 0;
+    world.pendingLevelRestart = false;
+    world.casino.levelRestartQueued = false;
+    world.invulnerableTime = Math.max(world.invulnerableTime, 0.9);
+    world.levelElapsed = 0;
+
+    runner.y = world.groundY - runner.height;
+    runner.vy = 0;
+    runner.onGround = true;
+    runner.coyoteTime = 0.1;
+    runner.jumpBuffer = 0;
+    runner.tilt = 0;
+
+    ensureGenerated();
+  }
+
+  function applyStartingLevel(levelId) {
+    const normalizedId = normalizeLevelId(levelId, 1);
+    const startingIndex = normalizedId - 1;
+    world.levelIndex = startingIndex;
+    world.score = getLevelStartScore(startingIndex);
+    restartStageForCurrentLevel();
+    world.invulnerableTime = 0;
+    world.levelAnnouncement.text = "";
+    world.levelAnnouncement.timer = 0;
+    updateLevelProgression({ announce: false });
+    updateHud();
+  }
+
+  function updateLevelProgression(options = {}) {
+    const { announce = true } = options;
+    const previousLevelIndex = world.levelIndex;
+    const nextTarget = levels[world.levelIndex]?.nextScore;
+    if (
+      world.levelIndex < levels.length - 1 &&
+      Number.isFinite(nextTarget) &&
+      world.score >= nextTarget
+    ) {
+      world.levelIndex += 1;
+      unlockLevel(world.levelIndex + 1);
+    }
+    if (announce && world.levelIndex > previousLevelIndex) {
+      announceLevelUp(getCurrentLevel());
+      world.invulnerableTime = Math.max(world.invulnerableTime, 0.7);
+      world.levelElapsed = 0;
+      if (world.mode === "casino") {
+        world.casino.levelRestartQueued = true;
+      } else {
+        world.pendingLevelRestart = true;
+      }
+    }
   }
 
   function parseVersion(version) {
@@ -463,8 +844,13 @@
     world.cameraX = 0;
     world.speed = config.startSpeed;
     world.score = 0;
+    world.levelIndex = 0;
+    world.pendingLevelRestart = false;
     world.elapsed = 0;
+    world.levelElapsed = 0;
     world.lastTime = 0;
+    world.levelAnnouncement.text = "";
+    world.levelAnnouncement.timer = 0;
     world.walls.length = 0;
     world.collectibles.length = 0;
     world.nextSpawnX = world.width * 0.9;
@@ -484,6 +870,7 @@
     world.rescue.holdTimer = 0;
     world.casino.pendingPull = false;
     world.casino.pendingResume = false;
+    world.casino.levelRestartQueued = false;
     world.invulnerableTime = 0;
 
     runner.y = world.groundY - runner.height;
@@ -494,6 +881,7 @@
     runner.tilt = 0;
 
     ensureGenerated();
+    updateLevelProgression({ announce: false });
     updateHud();
   }
 
@@ -630,6 +1018,7 @@
 
   function startRun() {
     resetWorld();
+    applyStartingLevel(getSelectedStartLevelId());
     world.mode = "running";
     hideOverlay();
   }
@@ -641,15 +1030,23 @@
     world.casino.pendingPull = false;
     world.casino.pendingResume = false;
     world.mode = "running";
+    if (world.casino.levelRestartQueued) {
+      restartStageForCurrentLevel();
+      updateHud();
+    }
     hideOverlay();
   }
 
   function endRun() {
     const preset = getActivePreset();
+    const level = getCurrentLevel();
+    const nextDestinationHint = Number.isFinite(level.nextScore)
+      ? `${Math.max(0, level.nextScore - world.score)} more points unlocks Level ${level.id + 1}.`
+      : "You reached the final destination.";
     world.mode = "gameOver";
     showOverlay(
       "Run Over",
-      `You hit an obstacle. Final score with ${preset.name}: ${world.score}`,
+      `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. ${nextDestinationHint}`,
       "Run Again",
       world.score
     );
@@ -790,7 +1187,16 @@
 
 
   function getDifficulty() {
-    return Math.min(1, world.score / 30);
+    const level = getCurrentLevel();
+    const levelProgress = getCurrentLevelProgress();
+    if (!Number.isFinite(level.nextScore)) {
+      return Math.min(1, level.difficulty + levelProgress * 0.2);
+    }
+    const nextLevel = levels[Math.min(levels.length - 1, world.levelIndex + 1)];
+    return Math.min(
+      1,
+      level.difficulty + (nextLevel.difficulty - level.difficulty) * levelProgress
+    );
   }
 
   function getProgressiveSpeedGain() {
@@ -824,11 +1230,16 @@
     world.slide.hasSpawned = true;
     world.slide.width = slideWidth;
     world.slide.height = slideHeight;
-    world.slide.x = world.width + slideWidth + 28;
+    world.slide.x = world.width + slideWidth + 160;
     world.slide.y = world.groundY - slideHeight;
   }
 
   function updateSlideObstacle(dt, runnerRect) {
+    if (!isSlideObstacleLevel()) {
+      world.slide.active = false;
+      world.slide.hasSpawned = false;
+      return false;
+    }
     if (!world.slide.hasSpawned && world.score >= config.slideTriggerScore) {
       activateSlideObstacle();
     }
@@ -837,7 +1248,10 @@
     }
 
     world.slide.y = world.groundY - world.slide.height;
-    const slideSpeed = Math.max(config.slideMinSpeed, world.speed + 24 + getDifficulty() * 40);
+    const slideSpeed = Math.max(
+      config.slideMinSpeed,
+      world.speed * 0.62 + 40 + getDifficulty() * 24
+    );
     world.slide.x -= slideSpeed * dt;
     if (world.slide.x + world.slide.width < -80) {
       world.slide.active = false;
@@ -845,10 +1259,10 @@
     }
 
     const slideRect = {
-      left: world.slide.x + 8,
-      top: world.slide.y + 10,
-      width: Math.max(12, world.slide.width - 16),
-      height: Math.max(12, world.slide.height - 14)
+      left: world.slide.x + 14,
+      top: world.slide.y + 18,
+      width: Math.max(10, world.slide.width - 28),
+      height: Math.max(10, world.slide.height - 28)
     };
     return hasAabbCollision(runnerRect, slideRect);
   }
@@ -870,6 +1284,8 @@
         }
         world.score += 1;
         world.speed = Math.min(config.maxSpeed, world.speed + getProgressiveSpeedGain());
+        updateLevelProgression();
+        updateHud();
       }
     }
   }
@@ -917,6 +1333,7 @@
     if (result.payout > 0) {
       world.speed = Math.min(config.maxSpeed, world.speed + result.payout * 2);
     }
+    updateLevelProgression();
     updateHud();
     world.casino.pendingPull = false;
     world.casino.pendingResume = true;
@@ -983,6 +1400,14 @@
   function updateHud() {
     scoreValue.textContent = String(world.score);
     speedValue.textContent = String(Math.round(world.speed));
+    const level = getCurrentLevel();
+    const pointsToNext = Number.isFinite(level.nextScore)
+      ? Math.max(0, level.nextScore - world.score)
+      : null;
+    levelValue.textContent = String(level.id);
+    destinationValue.textContent = level.name;
+    nextLevelValue.textContent =
+      pointsToNext === null ? "Final destination reached" : `${pointsToNext} pts to L${level.id + 1}`;
   }
 
   function update(dt) {
@@ -1039,6 +1464,11 @@
       }
     }
     collectItems(runnerWorldX + runner.width * 0.5, runner.y + runner.height * 0.5);
+    if (world.pendingLevelRestart) {
+      restartStageForCurrentLevel();
+      updateHud();
+      return;
+    }
     const hitSlide = updateSlideObstacle(dt, runnerRect);
     if (hitSlide && world.invulnerableTime <= 0) {
       if (!maybeTriggerRescue("slide")) {
@@ -1097,6 +1527,72 @@
     ctx.drawImage(image, cropX, cropY, cropW, cropH, x, y, width, height);
   }
 
+  function drawScrollingBackdrop(image, speedFactor, opacity = 1) {
+    const sourceW = image.naturalWidth || 0;
+    const sourceH = image.naturalHeight || 0;
+    if (sourceW <= 0 || sourceH <= 0) {
+      return;
+    }
+    const drawH = world.height;
+    const drawW = (sourceW * drawH) / sourceH;
+    const offset = (world.cameraX * speedFactor) % drawW;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    for (let x = -drawW - offset; x < world.width + drawW; x += drawW) {
+      ctx.drawImage(image, x, 0, drawW, drawH);
+    }
+    ctx.restore();
+  }
+
+  function drawTiledGroundTexture(image, speedFactor = 1) {
+    const sourceW = image.naturalWidth || 0;
+    const sourceH = image.naturalHeight || 0;
+    if (sourceW <= 0 || sourceH <= 0) {
+      return false;
+    }
+    const groundHeight = world.height - world.groundY;
+    const walkableRatio = Math.max(0.08, Math.min(0.9, config.deckWalkableRatio));
+    const requiredTileH = groundHeight / (1 - walkableRatio);
+    const tileH = Math.max(config.deckMinTileHeight, requiredTileH);
+    const tileW = Math.max(72, (sourceW * tileH) / sourceH);
+    const drawY = world.groundY - tileH * walkableRatio;
+    const offset = (world.cameraX * speedFactor) % tileW;
+
+    for (let x = -tileW - offset; x < world.width + tileW; x += tileW) {
+      ctx.drawImage(image, x, drawY, tileW, tileH);
+    }
+    return true;
+  }
+
+  function drawLevelBackground() {
+    const theme = getCurrentTheme();
+    const sky = ctx.createLinearGradient(0, 0, 0, world.height);
+    sky.addColorStop(0, theme.skyTop);
+    sky.addColorStop(0.58, theme.skyMid);
+    sky.addColorStop(1, theme.skyBottom);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, world.width, world.height);
+
+    const parallaxBackgroundTexture = getParallaxBackgroundTexture();
+    if (parallaxBackgroundTexture) {
+      drawScrollingBackdrop(
+        parallaxBackgroundTexture,
+        getParallaxBackgroundSpeed(),
+        0.94
+      );
+      return;
+    }
+
+    const levelIndex = Math.max(0, Math.min(levelBackgroundSources.length - 1, world.levelIndex));
+    if (assets.levelBackgroundsReady[levelIndex]) {
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      drawImageCover(assets.levelBackgrounds[levelIndex], 0, 0, world.width, world.height);
+      ctx.restore();
+    }
+  }
+
   function drawImageContainBottomCenter(image, centerX, bottomY, maxWidth, maxHeight) {
     const sourceW = image.naturalWidth || 0;
     const sourceH = image.naturalHeight || 0;
@@ -1131,31 +1627,81 @@
   }
 
   function drawGround() {
+    const theme = getCurrentTheme();
     const groundHeight = world.height - world.groundY;
-    ctx.fillStyle = "#e7d5a6";
+    ctx.fillStyle = theme.ground;
     ctx.fillRect(0, world.groundY, world.width, groundHeight);
 
-    if (assets.deckReady) {
-      const sourceW = Math.max(1, assets.deck.naturalWidth);
-      const sourceH = Math.max(1, assets.deck.naturalHeight);
-      const walkableRatio = Math.max(0.08, Math.min(0.9, config.deckWalkableRatio));
-      const requiredTileH = groundHeight / (1 - walkableRatio);
-      const tileH = Math.max(config.deckMinTileHeight, requiredTileH);
-      const tileW = Math.max(72, (sourceW * tileH) / sourceH);
-      const drawY = world.groundY - tileH * walkableRatio;
-      const offset = world.cameraX % tileW;
-
-      for (let x = -tileW - offset; x < world.width + tileW; x += tileW) {
-        ctx.drawImage(assets.deck, x, drawY, tileW, tileH);
-      }
-    } else {
-      ctx.fillStyle = "rgba(196, 154, 80, 0.35)";
-      const stripeWidth = 64;
-      const offset = (world.cameraX * 0.7) % stripeWidth;
-      for (let x = -stripeWidth - offset; x < world.width + stripeWidth; x += stripeWidth) {
-        ctx.fillRect(x, world.groundY + 28, stripeWidth * 0.5, 7);
-      }
+    const parallaxGroundTexture = getParallaxGroundTexture();
+    if (parallaxGroundTexture) {
+      drawTiledGroundTexture(parallaxGroundTexture, 1);
+      return;
     }
+
+    if (assets.deckReady && drawTiledGroundTexture(assets.deck, 1)) {
+      return;
+    }
+
+    ctx.fillStyle = theme.stripe;
+    const stripeWidth = 64;
+    const offset = (world.cameraX * 0.7) % stripeWidth;
+    for (let x = -stripeWidth - offset; x < world.width + stripeWidth; x += stripeWidth) {
+      ctx.fillRect(x, world.groundY + 28, stripeWidth * 0.5, 7);
+    }
+  }
+
+  function drawLevelFourCruiseShip() {
+    if (world.levelIndex !== 3) {
+      return;
+    }
+
+    const shipHeight = Math.max(64, world.height * 0.12);
+    const shipWidth = shipHeight * 3.7;
+    const startX = world.width + shipWidth + 46;
+    const endX = -shipWidth - 120;
+    const travelDuration = 17;
+    const travelProgress = Math.max(0, Math.min(1, world.levelElapsed / travelDuration));
+    const shipX = startX + (endX - startX) * travelProgress;
+    const waterlineY = world.height * 0.68;
+    const shipY = waterlineY - shipHeight;
+
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.32)";
+    ctx.beginPath();
+    ctx.ellipse(shipX + shipWidth * 0.5, waterlineY + 8, shipWidth * 0.46, shipHeight * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#f7fbff";
+    fillRoundedRect(shipX + shipWidth * 0.06, shipY + shipHeight * 0.49, shipWidth * 0.88, shipHeight * 0.38, shipHeight * 0.1);
+
+    ctx.beginPath();
+    ctx.moveTo(shipX + shipWidth * 0.04, shipY + shipHeight * 0.82);
+    ctx.lineTo(shipX + shipWidth * 0.95, shipY + shipHeight * 0.82);
+    ctx.lineTo(shipX + shipWidth * 0.86, shipY + shipHeight);
+    ctx.lineTo(shipX + shipWidth * 0.14, shipY + shipHeight);
+    ctx.closePath();
+    ctx.fillStyle = "#dfe9f2";
+    ctx.fill();
+
+    ctx.fillStyle = "#edf5fb";
+    fillRoundedRect(shipX + shipWidth * 0.24, shipY + shipHeight * 0.2, shipWidth * 0.48, shipHeight * 0.2, shipHeight * 0.06);
+    fillRoundedRect(shipX + shipWidth * 0.32, shipY + shipHeight * 0.08, shipWidth * 0.3, shipHeight * 0.11, shipHeight * 0.05);
+
+    ctx.fillStyle = "#8bb6d8";
+    const windowRows = [0.57, 0.67];
+    windowRows.forEach((row) => {
+      for (let i = 0; i < 11; i += 1) {
+        const wx = shipX + shipWidth * 0.12 + i * shipWidth * 0.07;
+        const wy = shipY + shipHeight * row;
+        fillRoundedRect(wx, wy, shipWidth * 0.036, shipHeight * 0.06, shipHeight * 0.02);
+      }
+    });
+
+    ctx.fillStyle = "#ffffff";
+    fillRoundedRect(shipX + shipWidth * 0.49, shipY - shipHeight * 0.09, shipWidth * 0.024, shipHeight * 0.16, shipHeight * 0.01);
+    ctx.restore();
   }
 
   function drawWalls() {
@@ -1437,6 +1983,59 @@
     ctx.fill();
   }
 
+  function drawLevelProgressTrack() {
+    const level = getCurrentLevel();
+    const progress = getCurrentLevelProgress();
+    const trackWidth = Math.min(280, world.width * 0.5);
+    const trackHeight = 13;
+    const x = world.width - trackWidth - 24;
+    const y = 22;
+    const fillWidth = Math.max(0, (trackWidth - 4) * progress);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(11, 24, 33, 0.28)";
+    fillRoundedRect(x, y, trackWidth, trackHeight, 999);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+    fillRoundedRect(x + 2, y + 2, fillWidth, trackHeight - 4, 999);
+    ctx.fillStyle = "rgba(16, 28, 40, 0.72)";
+    ctx.font = "700 12px Trebuchet MS, sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(
+      Number.isFinite(level.nextScore) ? `Level ${level.id} to ${level.id + 1}` : "Final Level",
+      x + trackWidth,
+      y - 5
+    );
+    ctx.restore();
+  }
+
+  function drawLevelAnnouncement() {
+    if (world.levelAnnouncement.timer <= 0 || !world.levelAnnouncement.text) {
+      return;
+    }
+    const fadeIn = Math.min(1, (config.levelAnnouncementDuration - world.levelAnnouncement.timer) / 0.24);
+    const fadeOut = Math.min(1, world.levelAnnouncement.timer / 0.4);
+    const alpha = Math.min(fadeIn, fadeOut);
+    const cardWidth = Math.min(420, world.width * 0.82);
+    const cardHeight = 58;
+    const x = world.width * 0.5 - cardWidth * 0.5;
+    const y = world.height * 0.13;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.fillStyle = "rgba(9, 26, 39, 0.78)";
+    fillRoundedRect(x, y, cardWidth, cardHeight, 16);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, cardWidth - 2, cardHeight - 2);
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 22px Trebuchet MS, sans-serif";
+    ctx.fillText(world.levelAnnouncement.text, world.width * 0.5, y + cardHeight * 0.52);
+    ctx.restore();
+  }
+
   function render() {
     ctx.clearRect(0, 0, world.width, world.height);
 
@@ -1445,28 +2044,32 @@
       return;
     }
 
-    const sky = ctx.createLinearGradient(0, 0, 0, world.height);
-    sky.addColorStop(0, "#96dfff");
-    sky.addColorStop(0.58, "#d3f2ff");
-    sky.addColorStop(1, "#f8efcb");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, world.width, world.height);
-
+    const theme = getCurrentTheme();
+    drawLevelBackground();
     drawClouds();
-    drawLayer("#cfe6bf", world.height * 0.69, 38, 220, 0.16);
-    drawLayer("#a9d095", world.height * 0.75, 52, 260, 0.3);
+    if (!isParallaxTextureLevel()) {
+      drawLayer(theme.layerFar, world.height * 0.69, 38, 220, 0.16);
+      drawLayer(theme.layerNear, world.height * 0.75, 52, 260, 0.3);
+    }
+    drawLevelFourCruiseShip();
     drawGround();
     drawWalls();
     drawSlideObstacle();
     drawCollectibles();
     drawRunner();
     drawRescueDoctor();
+    drawLevelProgressTrack();
+    drawLevelAnnouncement();
   }
 
   function onFrame(timestamp) {
     const elapsedMs = world.lastTime ? timestamp - world.lastTime : 16;
     world.lastTime = timestamp;
     const dt = Math.min(0.033, elapsedMs / 1000);
+    world.levelElapsed += dt;
+    if (world.levelAnnouncement.timer > 0) {
+      world.levelAnnouncement.timer = Math.max(0, world.levelAnnouncement.timer - dt);
+    }
 
     if (world.mode === "running") {
       update(dt);
@@ -1551,6 +2154,10 @@
         resetWorld();
       }
     });
+    startLevelSelect.addEventListener("change", (event) => {
+      progressionState.selectedStartLevel = normalizeLevelId(event.target.value, 1);
+      updateStartLevelDetails();
+    });
   }
 
   function updateCharacterUi() {
@@ -1564,10 +2171,12 @@
 
   resizeCanvas();
   parseSharedRunnerFromUrl();
+  hydrateProgressionState();
+  unlockLevel(1);
   resetWorld();
   showOverlay(
     "Bryan's Bonkers Cruise Dash",
-    "Jump walls and collect pickups. Difficulty ramps up gradually.",
+    "Jump walls, collect pickups, and unlock destinations from Existing Cruise Deck to Miami.",
     "Start Run"
   );
   updateCharacterUi();

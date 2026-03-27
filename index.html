@@ -24,6 +24,9 @@
     <section class="hud" aria-live="polite">
       <div class="hud-item">Score: <span id="scoreValue">0</span></div>
       <div class="hud-item">Speed: <span id="speedValue">0</span></div>
+      <div class="hud-item">Level: <span id="levelValue">1</span></div>
+      <div class="hud-item hud-destination">Destination: <span id="destinationValue">Existing Cruise Deck</span></div>
+      <div class="hud-item">Next: <span id="nextLevelValue">8 pts to L2</span></div>
       <button id="helpButton" class="hud-help" type="button" aria-haspopup="dialog" aria-controls="notesDialog">
         Help &amp; Notes
       </button>
@@ -41,10 +44,20 @@
           </select>
           <p id="characterDetails" class="character-details"></p>
         </div>
+        <div class="start-level-picker">
+          <label for="startLevelSelect">Start Level</label>
+          <select id="startLevelSelect">
+            <option value="1">Level 1 - Existing Cruise Deck</option>
+          </select>
+          <p id="startLevelDetails" class="start-level-details"></p>
+        </div>
         <ul class="tips" aria-label="How to play">
           <li>Collect drinks to increase your score.</li>
+          <li>Level path: Existing Cruise Deck → Island Adventure with adults-only pool → Bahamas → Cruise Deck → Miami.</li>
           <li>Grab bonus coins for a casino slot pull and extra points.</li>
-          <li>Difficulty scales up gradually as your score climbs.</li>
+          <li>Level up milestones: 8, 18, 31, and 46 points.</li>
+          <li>Each level unlock restarts the run section while keeping your speed momentum.</li>
+          <li>Unlocked levels are saved; pick any unlocked level from Start Level.</li>
           <li>There is no jump button — jump anywhere on screen.</li>
         </ul>
         <div class="overlay-actions">
