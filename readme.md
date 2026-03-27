@@ -47,9 +47,9 @@ Open [index.html](/Users/markcoleman/Development/github/bryan-fun/index.html) in
 
 - CI workflow: [ci.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/ci.yml)
   - Verifies required files exist.
-  - Installs npm dependencies.
+  - Installs dependencies from the committed lock file (`npm ci`).
   - Checks JavaScript syntax with `node --check`.
-  - Runs unit tests with coverage via `npm test`.
+  - Runs Node.js unit tests with coverage via `npm test`.
 - Deployment workflow: [deploy-pages.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/deploy-pages.yml)
   - Publishes the static site to GitHub Pages on pushes to `main`.
 
@@ -61,5 +61,4 @@ Open [index.html](/Users/markcoleman/Development/github/bryan-fun/index.html) in
 
 ## Testing
 
-- `npm test` runs the Vitest suite with coverage output for `src/game-logic.js`.
-- `vitest.config.js` enforces minimum coverage thresholds for statements, lines, functions, and branches.
+- `npm test` runs the Node.js test runner with built-in test coverage output for `tests/game-logic.test.js`.

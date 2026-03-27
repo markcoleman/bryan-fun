@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import test from "node:test";
+import assert from "node:assert/strict";
 import {
   compareVersions,
   getNotesSince,
@@ -7,64 +8,53 @@ import {
   parseVersion
 } from "../src/game-logic.js";
 
-describe("normalizeLevelId", () => {
-  it("clamps values to min/max bounds", () => {
-    expect(normalizeLevelId(0, 5, 2)).toBe(1);
-    expect(normalizeLevelId(9, 5, 2)).toBe(5);
-  });
-
-  it("falls back for non-numeric values", () => {
-    expect(normalizeLevelId("abc", 5, 3)).toBe(3);
-  });
+test("normalizeLevelId clamps values to min/max bounds", () => {
+  assert.equal(normalizeLevelId(0, 5, 2), 1);
+  assert.equal(normalizeLevelId(9, 5, 2), 5);
 });
 
-describe("version helpers", () => {
-  it("parses dotted versions", () => {
-    expect(parseVersion("1.9.0")).toEqual([1, 9, 0]);
-  });
-
-  it("compares versions accurately", () => {
-    expect(compareVersions("1.9.0", "1.8.5")).toBe(1);
-    expect(compareVersions("1.9.0", "1.9.0")).toBe(0);
-    expect(compareVersions("1.9.0", "2.0.0")).toBe(-1);
-  });
-
-  it("returns notes newer than the supplied version", () => {
-    const notes = [
-      { version: "1.9.0" },
-      { version: "1.8.0" },
-      { version: "1.2.0" }
-    ];
-
-    expect(getNotesSince("1.7.0", notes)).toEqual([{ version: "1.9.0" }, { version: "1.8.0" }]);
-  });
+test("normalizeLevelId falls back for non-numeric values", () => {
+  assert.equal(normalizeLevelId("abc", 5, 3), 3);
 });
 
-describe("getProgressiveSpeedGain", () => {
-  it("scales gain and respects max speed", () => {
-    const nextSpeed = getProgressiveSpeedGain({
-      score: 12,
-      speedGainPerCollectibleBase: 10,
-      speedGainPerCollectibleScale: 8,
-      speedGainMultiplier: 1.1,
-      currentSpeed: 200,
-      maxSpeed: 500
-    });
+test("parseVersion parses dotted versions", () => {
+  assert.deepEqual(parseVersion("1.9.0"), [1, 9, 0]);
+});
 
-    expect(nextSpeed).toBeGreaterThan(200);
-    expect(nextSpeed).toBeLessThanOrEqual(500);
+test("compareVersions compares versions accurately", () => {
+  assert.equal(compareVersions("1.9.0", "1.8.5"), 1);
+  assert.equal(compareVersions("1.9.0", "1.9.0"), 0);
+  assert.equal(compareVersions("1.9.0", "2.0.0"), -1);
+});
+
+test("getNotesSince returns notes newer than supplied version", () => {
+  const notes = [{ version: "1.9.0" }, { version: "1.8.0" }, { version: "1.2.0" }];
+  assert.deepEqual(getNotesSince("1.7.0", notes), [{ version: "1.9.0" }, { version: "1.8.0" }]);
+});
+
+test("getProgressiveSpeedGain scales gain and respects max speed", () => {
+  const nextSpeed = getProgressiveSpeedGain({
+    score: 12,
+    speedGainPerCollectibleBase: 10,
+    speedGainPerCollectibleScale: 8,
+    speedGainMultiplier: 1.1,
+    currentSpeed: 200,
+    maxSpeed: 500
   });
 
-  it("caps at max speed", () => {
-    expect(
-      getProgressiveSpeedGain({
-        score: 100,
-        speedGainPerCollectibleBase: 30,
-        speedGainPerCollectibleScale: 3,
-        speedGainMultiplier: 1.2,
-        currentSpeed: 495,
-        maxSpeed: 500
-      })
-    ).toBe(500);
+  assert.ok(nextSpeed > 200);
+  assert.ok(nextSpeed <= 500);
+});
+
+test("getProgressiveSpeedGain caps at max speed", () => {
+  const result = getProgressiveSpeedGain({
+    score: 100,
+    speedGainPerCollectibleBase: 30,
+    speedGainPerCollectibleScale: 3,
+    speedGainMultiplier: 1.2,
+    currentSpeed: 495,
+    maxSpeed: 500
   });
+
+  assert.equal(result, 500);
 });

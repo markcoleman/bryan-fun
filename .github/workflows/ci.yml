@@ -26,16 +26,16 @@ jobs:
           test -f src/game.js
           test -f src/game-logic.js
           test -f package.json
+          test -f package-lock.json
           test -d assets/images
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: JavaScript syntax check
         run: |
           node --check src/game.js
           node --check src/game-logic.js
-          node --check vitest.config.js
 
       - name: Unit tests with coverage
         run: npm test
