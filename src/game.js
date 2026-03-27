@@ -43,14 +43,19 @@
     deckWalkableRatio: 0.38,
     deckMinTileHeight: 210
   };
+  const imagePath = (fileName) => `assets/images/${fileName}`;
 
   const assets = {
     slide: new Image(),
     deck: new Image(),
     umbrella: new Image(),
+    casinoBackground: new Image(),
+    slotMachine: new Image(),
     slideReady: false,
     deckReady: false,
-    umbrellaReady: false
+    umbrellaReady: false,
+    casinoBackgroundReady: false,
+    slotMachineReady: false
   };
 
   const characterPresets = {
@@ -58,9 +63,11 @@
       name: "Bryan",
       collectibleName: "Pill",
       details: "Balanced speed and control. Uses existing Bryan + pill art.",
-      runnerIdleSrc: "bryan.png",
-      runnerStepSrc: "bryan2.png",
-      collectibleSrc: "drink.png",
+      runnerIdleSrc: imagePath("bryan.png"),
+      runnerStepSrc: imagePath("bryan2.png"),
+      runnerJumpSrc: imagePath("bryan-jump.png"),
+      collectibleSrc: imagePath("drink.png"),
+      runnerScale: 1,
       speedGainMultiplier: 1,
       jumpVelocityMultiplier: 1,
       fallbackColor: "#f26a4b",
@@ -71,9 +78,12 @@
       name: "Barbra",
       collectibleName: "Morning Beer",
       details: "Extra zip after pickups, with a slightly lower jump arc.",
-      runnerIdleSrc: "barbra.png",
-      runnerStepSrc: "barbra2.png",
-      collectibleSrc: "morning-beer.png",
+      runnerIdleSrc: imagePath("barbra.png"),
+      runnerStepSrc: imagePath("barbra2.png"),
+      runnerJumpSrc: imagePath("babra-jump.png"),
+      runnerJumpFallbackSrc: imagePath("barbra-jump.png"),
+      collectibleSrc: imagePath("morning-beer.png"),
+      runnerScale: 1.5,
       speedGainMultiplier: 1.08,
       jumpVelocityMultiplier: 0.96,
       fallbackColor: "#f48cb4",
@@ -84,9 +94,11 @@
       name: "Kyle",
       collectibleName: "Champagne",
       details: "Higher jumps and smoother landings with moderate acceleration.",
-      runnerIdleSrc: "kyle.png",
-      runnerStepSrc: "kyle2.png",
-      collectibleSrc: "champagne.png",
+      runnerIdleSrc: imagePath("kyle.png"),
+      runnerStepSrc: imagePath("kyle2.png"),
+      runnerJumpSrc: imagePath("kyle-jump.png"),
+      collectibleSrc: imagePath("champagne.png"),
+      runnerScale: 1.5,
       speedGainMultiplier: 0.94,
       jumpVelocityMultiplier: 1.05,
       fallbackColor: "#7da2ff",
@@ -99,7 +111,7 @@
   let currentCharacter = "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "1.4.0",
+    currentVersion: "1.5.0",
     notes: [
       {
         version: "1.2.0",
@@ -130,22 +142,41 @@
           "Stored the latest seen version in local storage to avoid repeat prompts.",
           "Added a Help & Notes menu option with a scrollable release notes view."
         ]
+      },
+      {
+        version: "1.5.0",
+        date: "2026-03-27",
+        title: "Casino polish + asset organization",
+        bullets: [
+          "Reorganized the project for easier maintenance with code in src/ and art in assets/images/.",
+          "Updated casino bonus visuals to use casino.png as the background and slot-machine.png in the foreground with aspect-ratio-safe scaling.",
+          "Adjusted character presentation so Barbra and Kyle render larger than Bryan during runs.",
+          "Added per-character jump sprites (bryan-jump, babra/barbra-jump fallback, and kyle-jump).",
+          "Removed the runner shadow while airborne and hid the character during casino mode."
+        ]
       }
     ],
     isOpen: false,
     triggerEl: null
   };
 
-  function loadImageWithReadyFlag(src) {
+  function loadImageWithReadyFlag(src, fallbackSrc = null) {
     const image = new Image();
     const record = {
       image,
       ready: false
     };
-    image.src = src;
+    let usedFallback = false;
     image.onload = () => {
       record.ready = true;
     };
+    image.onerror = () => {
+      if (fallbackSrc && !usedFallback) {
+        usedFallback = true;
+        image.src = fallbackSrc;
+      }
+    };
+    image.src = src;
     return record;
   }
 
@@ -153,13 +184,16 @@
     characterAssets[key] = {
       idle: loadImageWithReadyFlag(preset.runnerIdleSrc),
       step: loadImageWithReadyFlag(preset.runnerStepSrc),
+      jump: loadImageWithReadyFlag(preset.runnerJumpSrc, preset.runnerJumpFallbackSrc),
       collectible: loadImageWithReadyFlag(preset.collectibleSrc)
     };
   }
 
-  assets.slide.src = "slide.png";
-  assets.deck.src = "deck.png";
-  assets.umbrella.src = "umbrella.png";
+  assets.slide.src = imagePath("slide.png");
+  assets.deck.src = imagePath("deck.png");
+  assets.umbrella.src = imagePath("umbrella.png");
+  assets.casinoBackground.src = imagePath("casino.png");
+  assets.slotMachine.src = imagePath("slot-machine.png");
   assets.slide.onload = () => {
     assets.slideReady = true;
   };
@@ -168,6 +202,12 @@
   };
   assets.umbrella.onload = () => {
     assets.umbrellaReady = true;
+  };
+  assets.casinoBackground.onload = () => {
+    assets.casinoBackgroundReady = true;
+  };
+  assets.slotMachine.onload = () => {
+    assets.slotMachineReady = true;
   };
 
   const world = {
@@ -773,6 +813,48 @@
     }
   }
 
+  function drawImageCover(image, x, y, width, height) {
+    const sourceW = image.naturalWidth || 0;
+    const sourceH = image.naturalHeight || 0;
+    if (sourceW <= 0 || sourceH <= 0) {
+      ctx.drawImage(image, x, y, width, height);
+      return;
+    }
+
+    const sourceRatio = sourceW / sourceH;
+    const targetRatio = width / height;
+    let cropW = sourceW;
+    let cropH = sourceH;
+    let cropX = 0;
+    let cropY = 0;
+
+    if (sourceRatio > targetRatio) {
+      cropW = sourceH * targetRatio;
+      cropX = (sourceW - cropW) * 0.5;
+    } else {
+      cropH = sourceW / targetRatio;
+      cropY = (sourceH - cropH) * 0.5;
+    }
+
+    ctx.drawImage(image, cropX, cropY, cropW, cropH, x, y, width, height);
+  }
+
+  function drawImageContainBottomCenter(image, centerX, bottomY, maxWidth, maxHeight) {
+    const sourceW = image.naturalWidth || 0;
+    const sourceH = image.naturalHeight || 0;
+    if (sourceW <= 0 || sourceH <= 0) {
+      return null;
+    }
+
+    const scale = Math.min(maxWidth / sourceW, maxHeight / sourceH);
+    const drawW = sourceW * scale;
+    const drawH = sourceH * scale;
+    const drawX = centerX - drawW * 0.5;
+    const drawY = bottomY - drawH;
+    ctx.drawImage(image, drawX, drawY, drawW, drawH);
+    return { x: drawX, y: drawY, width: drawW, height: drawH };
+  }
+
   function drawClouds() {
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     const span = world.width + 300;
@@ -928,34 +1010,107 @@
 
     runner.tilt += (Math.max(-0.2, Math.min(0.2, -runner.vy * 0.0008)) - runner.tilt) * 0.2;
     const bob = runner.onGround ? Math.sin(runCycle) * 1.9 : 0;
-    const drawW = runner.width * 1.24;
-    const drawH = runner.height * 1.24;
+    const baseDrawScale = 1.24;
+    const visualScale = baseDrawScale * Math.max(1, preset.runnerScale || 1);
+    const drawW = runner.width * visualScale;
+    const drawH = runner.height * visualScale;
+    const baseDrawH = runner.height * baseDrawScale;
+    const drawYOffset = (baseDrawH - drawH) * 0.5;
+    const shadowScale = visualScale / baseDrawScale;
 
     ctx.save();
     ctx.translate(x + runner.width * 0.5, y + runner.height * 0.5 + bob);
     ctx.rotate(runner.tilt);
 
-    ctx.fillStyle = "rgba(20, 35, 50, 0.25)";
-    ctx.beginPath();
-    ctx.ellipse(0, runner.height * 0.54, 24, 9, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (runner.onGround) {
+      ctx.fillStyle = "rgba(20, 35, 50, 0.25)";
+      ctx.beginPath();
+      ctx.ellipse(
+        0,
+        runner.height * 0.54,
+        24 * shadowScale,
+        9 * Math.max(0.9, shadowScale * 0.95),
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
 
     if (activeAssets.idle.ready) {
-      const runnerImage =
-        isWalking && walkFrame === 1 && activeAssets.step.ready
-          ? activeAssets.step.image
-          : activeAssets.idle.image;
-      ctx.drawImage(runnerImage, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
+      let runnerImage = activeAssets.idle.image;
+      if (!runner.onGround && activeAssets.jump.ready) {
+        runnerImage = activeAssets.jump.image;
+      } else if (isWalking && walkFrame === 1 && activeAssets.step.ready) {
+        runnerImage = activeAssets.step.image;
+      }
+      ctx.drawImage(runnerImage, -drawW * 0.5, -drawH * 0.5 + drawYOffset, drawW, drawH);
     } else {
+      ctx.save();
+      ctx.translate(0, drawYOffset);
+      ctx.scale(shadowScale, shadowScale);
       ctx.fillStyle = preset.fallbackColor;
       fillRoundedRect(-16, -12, 32, 34, 10);
       ctx.fillStyle = "#ffd4b6";
       ctx.beginPath();
       ctx.arc(0, -22, 12, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
 
     ctx.restore();
+  }
+
+  function drawCasinoMode() {
+    if (assets.casinoBackgroundReady) {
+      drawImageCover(assets.casinoBackground, 0, 0, world.width, world.height);
+    } else {
+      const casinoGradient = ctx.createLinearGradient(0, 0, 0, world.height);
+      casinoGradient.addColorStop(0, "#30052f");
+      casinoGradient.addColorStop(0.55, "#4d0a2f");
+      casinoGradient.addColorStop(1, "#1d0317");
+      ctx.fillStyle = casinoGradient;
+      ctx.fillRect(0, 0, world.width, world.height);
+    }
+
+    ctx.fillStyle = "rgba(7, 9, 18, 0.2)";
+    ctx.fillRect(0, 0, world.width, world.height);
+
+    const slotMargin = Math.max(18, world.width * 0.03);
+    const maxSlotWidth = world.width * 0.72;
+    const maxSlotHeight = world.height * 0.86;
+    const slotBottomY = world.height - slotMargin;
+
+    if (assets.slotMachineReady) {
+      drawImageContainBottomCenter(
+        assets.slotMachine,
+        world.width * 0.52,
+        slotBottomY,
+        maxSlotWidth,
+        maxSlotHeight
+      );
+      return;
+    }
+
+    const fallbackW = Math.min(world.width * 0.55, 300);
+    const fallbackH = Math.min(world.height * 0.7, 390);
+    const fallbackX = world.width * 0.5 - fallbackW * 0.5;
+    const fallbackY = slotBottomY - fallbackH;
+    ctx.fillStyle = "#d14168";
+    fillRoundedRect(fallbackX, fallbackY, fallbackW, fallbackH, 28);
+    ctx.fillStyle = "#f6dc58";
+    fillRoundedRect(
+      fallbackX + fallbackW * 0.18,
+      fallbackY + fallbackH * 0.23,
+      fallbackW * 0.64,
+      fallbackH * 0.2,
+      14
+    );
+    ctx.fillStyle = "#2f0f1f";
+    ctx.font = "bold 38px Trebuchet MS, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("777", world.width * 0.5, fallbackY + fallbackH * 0.33);
   }
 
   function fillRoundedRect(x, y, width, height, radius) {
@@ -976,6 +1131,11 @@
 
   function render() {
     ctx.clearRect(0, 0, world.width, world.height);
+
+    if (world.mode === "casino") {
+      drawCasinoMode();
+      return;
+    }
 
     const sky = ctx.createLinearGradient(0, 0, 0, world.height);
     sky.addColorStop(0, "#96dfff");

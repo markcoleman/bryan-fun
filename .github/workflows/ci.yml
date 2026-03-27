@@ -21,8 +21,9 @@ jobs:
       - name: Verify required files
         run: |
           test -f index.html
-          test -f style.css
-          test -f game.js
+          test -f src/style.css
+          test -f src/game.js
+          test -d assets/images
 
       - name: JavaScript syntax check
-        run: node --check game.js
+        run: node --check src/game.js
