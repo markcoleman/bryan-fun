@@ -1,0 +1,8 @@
+{
+  "name": "bryan-fun",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --experimental-test-coverage tests/game-logic.test.js"
+  }
+}

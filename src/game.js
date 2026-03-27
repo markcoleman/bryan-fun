@@ -1,3 +1,9 @@
+import {
+  getNotesSince as getNotesSinceVersion,
+  getProgressiveSpeedGain as calculateProgressiveSpeedGain,
+  normalizeLevelId as clampLevelId
+} from "./game-logic.js";
+
 "use strict";
 
 (() => {
@@ -59,11 +65,11 @@
   };
   const imagePath = (fileName) => `assets/images/${fileName}`;
   const levelBackgroundSources = [
-    imagePath("level-1-existing-cruise.svg"),
-    imagePath("level-2-island-adventure.svg"),
-    imagePath("level-3-bahamas.svg"),
-    imagePath("level-4-cruise-deck.svg"),
-    imagePath("level-5-miami.svg")
+    imagePath("levels/level-1-existing-cruise.svg"),
+    imagePath("levels/level-2-island-adventure.svg"),
+    imagePath("levels/level-3-bahamas.svg"),
+    imagePath("levels/level-4-cruise-deck.svg"),
+    imagePath("levels/level-5-miami.svg")
   ];
 
   const assets = {
@@ -176,10 +182,10 @@
       name: "Bryan",
       collectibleName: "Pill",
       details: "Balanced speed and control. Uses existing Bryan + pill art.",
-      runnerIdleSrc: imagePath("bryan.png"),
-      runnerStepSrc: imagePath("bryan2.png"),
-      runnerJumpSrc: imagePath("bryan-jump.png"),
-      collectibleSrc: imagePath("drink.png"),
+      runnerIdleSrc: imagePath("characters/bryan.png"),
+      runnerStepSrc: imagePath("characters/bryan2.png"),
+      runnerJumpSrc: imagePath("characters/bryan-jump.png"),
+      collectibleSrc: imagePath("items/drink.png"),
       runnerScale: 1,
       speedGainMultiplier: 1,
       jumpVelocityMultiplier: 1,
@@ -191,11 +197,11 @@
       name: "Barbra",
       collectibleName: "Morning Beer",
       details: "Extra zip after pickups, with a slightly lower jump arc.",
-      runnerIdleSrc: imagePath("barbra.png"),
-      runnerStepSrc: imagePath("barbra2.png"),
-      runnerJumpSrc: imagePath("babra-jump.png"),
-      runnerJumpFallbackSrc: imagePath("barbra-jump.png"),
-      collectibleSrc: imagePath("morning-beer.png"),
+      runnerIdleSrc: imagePath("characters/barbra.png"),
+      runnerStepSrc: imagePath("characters/barbra2.png"),
+      runnerJumpSrc: imagePath("characters/barbra-jump.png"),
+      runnerJumpFallbackSrc: imagePath("characters/barbra-jump.png"),
+      collectibleSrc: imagePath("items/morning-beer.png"),
       runnerScale: 1.5,
       speedGainMultiplier: 1.08,
       jumpVelocityMultiplier: 0.96,
@@ -207,10 +213,10 @@
       name: "Kyle",
       collectibleName: "Champagne",
       details: "Higher jumps and smoother landings with moderate acceleration.",
-      runnerIdleSrc: imagePath("kyle.png"),
-      runnerStepSrc: imagePath("kyle2.png"),
-      runnerJumpSrc: imagePath("kyle-jump.png"),
-      collectibleSrc: imagePath("champagne.png"),
+      runnerIdleSrc: imagePath("characters/kyle.png"),
+      runnerStepSrc: imagePath("characters/kyle2.png"),
+      runnerJumpSrc: imagePath("characters/kyle-jump.png"),
+      collectibleSrc: imagePath("items/champagne.png"),
       runnerScale: 1.5,
       speedGainMultiplier: 0.94,
       jumpVelocityMultiplier: 1.05,
@@ -246,7 +252,7 @@
         date: "2026-03-27",
         title: "Splash screen + streamlined HUD/menu",
         bullets: [
-          "Added a dedicated opening splash screen using bryan-splash.png before the main menu.",
+          "Added a dedicated opening splash screen using ui/bryan-splash.png before the main menu.",
           "Simplified the start screen to a single-column setup flow: Character, Level, Help, then Start Run.",
           "Removed lower-value in-run HUD items so core stats remain focused during gameplay.",
           "Updated game-over behavior so Run Again returns to the main menu instead of instantly restarting."
@@ -288,7 +294,7 @@
         title: "Casino polish + asset organization",
         bullets: [
           "Reorganized the project for easier maintenance with code in src/ and art in assets/images/.",
-          "Updated casino bonus visuals to use casino.png as the background and slot-machine.png in the foreground with aspect-ratio-safe scaling.",
+          "Updated casino bonus visuals to use backgrounds/casino.png as the background and items/slot-machine.png in the foreground with aspect-ratio-safe scaling.",
           "Adjusted character presentation so Barbra and Kyle render larger than Bryan during runs.",
           "Added per-character jump sprites (bryan-jump, babra/barbra-jump fallback, and kyle-jump).",
           "Removed the runner shadow while airborne and hid the character during casino mode."
@@ -378,17 +384,29 @@
     };
   }
 
-  assets.slide.src = imagePath("slide.png");
-  assets.deck.src = imagePath("deck.png");
-  assets.umbrella.src = imagePath("umbrella.png");
-  assets.casinoBackground.src = imagePath("casino.png");
-  assets.slotMachine.src = imagePath("slot-machine.png");
-  assets.rescueDoctor.src = imagePath("dr-m.png");
-  assets.beachBackground.src = imagePath("beach-background.png");
-  assets.beachGround.src = imagePath("beach.png");
-  assets.bahamasGround.src = imagePath("bahamas.png");
-  assets.miamiBackground.src = imagePath("miami-background.png");
-  assets.miamiGround.src = imagePath("miami.png");
+  const lazyAssetSources = {
+    slide: imagePath("items/slide.png"),
+    deck: imagePath("grounds/deck.png"),
+    umbrella: imagePath("items/umbrella.png"),
+    casinoBackground: imagePath("backgrounds/casino.png"),
+    slotMachine: imagePath("items/slot-machine.png"),
+    rescueDoctor: imagePath("npc/dr-m.png"),
+    beachBackground: imagePath("backgrounds/beach-background.png"),
+    beachGround: imagePath("grounds/beach.png"),
+    bahamasGround: imagePath("grounds/bahamas.png"),
+    miamiBackground: imagePath("backgrounds/miami-background.png"),
+    miamiGround: imagePath("grounds/miami.png")
+  };
+
+  const requestedLazyAssets = new Set();
+
+  function ensureLazyAssetLoaded(assetKey) {
+    if (requestedLazyAssets.has(assetKey)) {
+      return;
+    }
+    requestedLazyAssets.add(assetKey);
+    assets[assetKey].src = lazyAssetSources[assetKey];
+  }
   assets.slide.onload = () => {
     assets.slideReady = true;
   };
@@ -422,6 +440,12 @@
   assets.miamiGround.onload = () => {
     assets.miamiGroundReady = true;
   };
+
+  // Prime only core assets at startup; defer larger stage/background textures until needed.
+  ensureLazyAssetLoaded("deck");
+  ensureLazyAssetLoaded("umbrella");
+  ensureLazyAssetLoaded("slide");
+  ensureLazyAssetLoaded("rescueDoctor");
   levelBackgroundSources.forEach((source, index) => {
     assets.levelBackgrounds[index].onload = () => {
       assets.levelBackgroundsReady[index] = true;
@@ -503,11 +527,7 @@
   }
 
   function normalizeLevelId(value, fallback = 1) {
-    const parsed = Number.parseInt(String(value), 10);
-    if (!Number.isFinite(parsed)) {
-      return fallback;
-    }
-    return Math.max(1, Math.min(levels.length, parsed));
+    return clampLevelId(value, levels.length, fallback);
   }
 
   function readMaxUnlockedLevel() {
@@ -590,8 +610,14 @@
   }
 
   function getParallaxBackgroundTexture() {
+    if (world.levelIndex === 1 || world.levelIndex === 2) {
+      ensureLazyAssetLoaded("beachBackground");
+    }
     if ((world.levelIndex === 1 || world.levelIndex === 2) && assets.beachBackgroundReady) {
       return assets.beachBackground;
+    }
+    if (world.levelIndex === 4) {
+      ensureLazyAssetLoaded("miamiBackground");
     }
     if (world.levelIndex === 4 && assets.miamiBackgroundReady) {
       return assets.miamiBackground;
@@ -607,11 +633,20 @@
   }
 
   function getParallaxGroundTexture() {
+    if (world.levelIndex === 1) {
+      ensureLazyAssetLoaded("beachGround");
+    }
     if (world.levelIndex === 1 && assets.beachGroundReady) {
       return assets.beachGround;
     }
+    if (world.levelIndex === 2) {
+      ensureLazyAssetLoaded("bahamasGround");
+    }
     if (world.levelIndex === 2 && assets.bahamasGroundReady) {
       return assets.bahamasGround;
+    }
+    if (world.levelIndex === 4) {
+      ensureLazyAssetLoaded("miamiGround");
     }
     if (world.levelIndex === 4 && assets.miamiGroundReady) {
       return assets.miamiGround;
@@ -764,10 +799,8 @@
     if (!version) {
       return [...releaseState.notes];
     }
-    return releaseState.notes.filter(
-      (note) =>
-        compareVersions(note.version, version) > 0 &&
-        compareVersions(note.version, releaseState.currentVersion) <= 0
+    return getNotesSinceVersion(version, releaseState.notes).filter(
+      (note) => compareVersions(note.version, releaseState.currentVersion) <= 0
     );
   }
 
@@ -1257,10 +1290,15 @@
   function getProgressiveSpeedGain() {
     const preset = getActivePreset();
     const difficulty = getDifficulty();
-    return (
-      (config.speedGainPerCollectibleBase +
-      config.speedGainPerCollectibleScale * difficulty) * preset.speedGainMultiplier
-    );
+    const dynamicBase = config.speedGainPerCollectibleBase + config.speedGainPerCollectibleScale * difficulty;
+    return calculateProgressiveSpeedGain({
+      score: world.score,
+      speedGainPerCollectibleBase: dynamicBase,
+      speedGainPerCollectibleScale: config.speedGainPerCollectibleScale,
+      speedGainMultiplier: preset.speedGainMultiplier,
+      maxSpeed: config.maxSpeed,
+      currentSpeed: world.speed
+    }) - world.speed;
   }
 
   function getSpawnGapRange() {
@@ -1970,6 +2008,7 @@
   }
 
   function drawCasinoMode() {
+    ensureLazyAssetLoaded("casinoBackground");
     if (assets.casinoBackgroundReady) {
       drawImageCover(assets.casinoBackground, 0, 0, world.width, world.height);
     } else {
@@ -1989,6 +2028,7 @@
     const maxSlotHeight = world.height * 0.86;
     const slotBottomY = world.height - slotMargin;
 
+    ensureLazyAssetLoaded("slotMachine");
     if (assets.slotMachineReady) {
       drawImageContainBottomCenter(
         assets.slotMachine,
