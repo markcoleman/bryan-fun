@@ -41,7 +41,12 @@
     slideMinSpeed: 380,
     slideHeight: 64,
     deckWalkableRatio: 0.38,
-    deckMinTileHeight: 210
+    deckMinTileHeight: 210,
+    rescueChance: 0.38,
+    rescueDoctorHeight: 124,
+    rescueDoctorSpeed: 520,
+    rescueReviveHold: 0.55,
+    rescuePostInvulnerability: 1.4
   };
   const imagePath = (fileName) => `assets/images/${fileName}`;
 
@@ -51,11 +56,13 @@
     umbrella: new Image(),
     casinoBackground: new Image(),
     slotMachine: new Image(),
+    rescueDoctor: new Image(),
     slideReady: false,
     deckReady: false,
     umbrellaReady: false,
     casinoBackgroundReady: false,
-    slotMachineReady: false
+    slotMachineReady: false,
+    rescueDoctorReady: false
   };
 
   const characterPresets = {
@@ -126,7 +133,7 @@
   let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "1.5.0",
+    currentVersion: "1.6.0",
     notes: [
       {
         version: "1.2.0",
@@ -168,6 +175,17 @@
           "Adjusted character presentation so Barbra and Kyle render larger than Bryan during runs.",
           "Added per-character jump sprites (bryan-jump, babra/barbra-jump fallback, and kyle-jump).",
           "Removed the runner shadow while airborne and hid the character during casino mode."
+        ]
+      },
+      {
+        version: "1.6.0",
+        date: "2026-03-27",
+        title: "Rescue mode + share-image fixes",
+        bullets: [
+          "Added rescue mode: when you crash, there is now a random chance Dr M enters from right to left and revives your run.",
+          "After revive, your run resumes from the crash moment with score and speed preserved, plus a short invulnerability window.",
+          "Updated share behavior so Web Share uses the selected runner image instead of always defaulting to Bryan.",
+          "Share links now include the selected runner so shared URLs reopen with the right character."
         ]
       }
     ],
@@ -219,6 +237,7 @@
   assets.umbrella.src = imagePath("umbrella.png");
   assets.casinoBackground.src = imagePath("casino.png");
   assets.slotMachine.src = imagePath("slot-machine.png");
+  assets.rescueDoctor.src = imagePath("dr-m.png");
   assets.slide.onload = () => {
     assets.slideReady = true;
   };
@@ -233,6 +252,9 @@
   };
   assets.slotMachine.onload = () => {
     assets.slotMachineReady = true;
+  };
+  assets.rescueDoctor.onload = () => {
+    assets.rescueDoctorReady = true;
   };
 
   const world = {
@@ -256,10 +278,21 @@
       width: 0,
       height: 0
     },
+    rescue: {
+      active: false,
+      stage: "idle",
+      doctorX: 0,
+      doctorY: 0,
+      doctorWidth: 0,
+      doctorHeight: 0,
+      targetX: 0,
+      holdTimer: 0
+    },
     casino: {
       pendingPull: false,
       pendingResume: false
-    }
+    },
+    invulnerableTime: 0
   };
 
   const runner = {
@@ -441,8 +474,17 @@
     world.slide.y = 0;
     world.slide.width = 0;
     world.slide.height = 0;
+    world.rescue.active = false;
+    world.rescue.stage = "idle";
+    world.rescue.doctorX = 0;
+    world.rescue.doctorY = 0;
+    world.rescue.doctorWidth = 0;
+    world.rescue.doctorHeight = 0;
+    world.rescue.targetX = 0;
+    world.rescue.holdTimer = 0;
     world.casino.pendingPull = false;
     world.casino.pendingResume = false;
+    world.invulnerableTime = 0;
 
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
@@ -499,6 +541,49 @@
     url.searchParams.set("score", String(score));
     url.searchParams.set("character", currentCharacter);
     return url.toString();
+  }
+
+  function updateShareMetaTags() {
+    const preset = getActivePreset();
+    const imageUrl = new URL(preset.runnerIdleSrc, window.location.href).toString();
+    const imageAlt = `${preset.name} character from Bryan's Bonkers Cruise Dash`;
+    const ogImageMeta = document.querySelector('meta[property="og:image"]');
+    const ogImageAltMeta = document.querySelector('meta[property="og:image:alt"]');
+    const twitterImageMeta = document.querySelector('meta[name="twitter:image"]');
+
+    if (ogImageMeta) {
+      ogImageMeta.setAttribute("content", imageUrl);
+    }
+    if (ogImageAltMeta) {
+      ogImageAltMeta.setAttribute("content", imageAlt);
+    }
+    if (twitterImageMeta) {
+      twitterImageMeta.setAttribute("content", imageUrl);
+    }
+  }
+
+  function parseSharedRunnerFromUrl() {
+    const url = new URL(window.location.href);
+    const sharedRunner = url.searchParams.get("runner");
+    if (sharedRunner && characterPresets[sharedRunner]) {
+      currentCharacter = sharedRunner;
+    }
+  }
+
+  async function buildShareImageFile() {
+    const preset = getActivePreset();
+    try {
+      const imageUrl = new URL(preset.runnerIdleSrc, window.location.href);
+      const response = await fetch(imageUrl.toString(), { cache: "force-cache" });
+      if (!response.ok) {
+        return null;
+      }
+      const blob = await response.blob();
+      const fileType = blob.type || "image/png";
+      return new File([blob], `${currentCharacter}-share.png`, { type: fileType });
+    } catch (_) {
+      return null;
+    }
   }
 
   function hideShareLink() {
@@ -570,6 +655,92 @@
     );
   }
 
+  function clearCollidingWall(collidingWall) {
+    if (!collidingWall) {
+      return;
+    }
+    world.walls = world.walls.filter((wall) => wall !== collidingWall);
+  }
+
+  function setupRescueDoctor() {
+    const fallbackAspect = 0.62;
+    const sourceW = assets.rescueDoctor.naturalWidth || 0;
+    const sourceH = assets.rescueDoctor.naturalHeight || 0;
+    const aspect = sourceW > 0 && sourceH > 0 ? sourceW / sourceH : fallbackAspect;
+    const doctorHeight = config.rescueDoctorHeight;
+    const doctorWidth = doctorHeight * aspect;
+    const targetX = world.width * config.runnerScreenRatio + runner.width * 0.58;
+
+    world.rescue.active = true;
+    world.rescue.stage = "arriving";
+    world.rescue.doctorHeight = doctorHeight;
+    world.rescue.doctorWidth = doctorWidth;
+    world.rescue.doctorX = world.width + doctorWidth + 28;
+    world.rescue.doctorY = world.groundY - doctorHeight + 2;
+    world.rescue.targetX = targetX;
+    world.rescue.holdTimer = config.rescueReviveHold;
+  }
+
+  function completeRescue() {
+    world.rescue.active = false;
+    world.rescue.stage = "idle";
+    world.invulnerableTime = config.rescuePostInvulnerability;
+    runner.y = world.groundY - runner.height;
+    runner.vy = 0;
+    runner.onGround = true;
+    runner.coyoteTime = 0.08;
+    runner.jumpBuffer = 0;
+    world.mode = "running";
+  }
+
+  function updateRescue(dt) {
+    world.elapsed += dt;
+    if (!world.rescue.active) {
+      return;
+    }
+
+    if (world.rescue.stage === "arriving") {
+      world.rescue.doctorX -= config.rescueDoctorSpeed * dt;
+      if (world.rescue.doctorX <= world.rescue.targetX) {
+        world.rescue.doctorX = world.rescue.targetX;
+        world.rescue.stage = "reviving";
+      }
+      return;
+    }
+
+    if (world.rescue.stage === "reviving") {
+      world.rescue.holdTimer = Math.max(0, world.rescue.holdTimer - dt);
+      if (world.rescue.holdTimer <= 0) {
+        world.rescue.stage = "leaving";
+      }
+      return;
+    }
+
+    if (world.rescue.stage === "leaving") {
+      world.rescue.doctorX -= config.rescueDoctorSpeed * 1.5 * dt;
+      if (world.rescue.doctorX + world.rescue.doctorWidth < -60) {
+        completeRescue();
+      }
+    }
+  }
+
+  function maybeTriggerRescue(cause, collisionData = null) {
+    if (Math.random() > config.rescueChance) {
+      return false;
+    }
+    if (cause === "wall") {
+      clearCollidingWall(collisionData);
+    } else if (cause === "slide") {
+      world.slide.active = false;
+    }
+    runner.vy = 0;
+    runner.onGround = true;
+    runner.coyoteTime = 0;
+    world.mode = "rescue";
+    setupRescueDoctor();
+    return true;
+  }
+
   function queueJump() {
     if (world.mode === "ready" || world.mode === "gameOver") {
       startRun();
@@ -594,7 +765,7 @@
     }
   }
 
-  function hasWallCollision(worldLeft, worldRight, runnerTop, runnerBottom) {
+  function getWallCollision(worldLeft, worldRight, runnerTop, runnerBottom) {
     for (const wall of world.walls) {
       const wallLeft = wall.x;
       const wallRight = wall.x + wall.width;
@@ -602,10 +773,10 @@
       const xOverlaps = worldRight > wallLeft + 2 && worldLeft < wallRight - 2;
       const yHitsFace = runnerBottom > wallTop + 8 && runnerTop < world.groundY - 4;
       if (xOverlaps && yHitsFace) {
-        return true;
+        return wall;
       }
     }
-    return false;
+    return null;
   }
 
   function hasAabbCollision(a, b) {
@@ -818,6 +989,9 @@
     world.elapsed += dt;
     world.cameraX += world.speed * dt;
     world.speed = Math.min(config.maxSpeed, world.speed + dt * (0.8 + getDifficulty() * 1.4));
+    if (world.invulnerableTime > 0) {
+      world.invulnerableTime = Math.max(0, world.invulnerableTime - dt);
+    }
 
     if (runner.jumpBuffer > 0) {
       runner.jumpBuffer = Math.max(0, runner.jumpBuffer - dt);
@@ -855,13 +1029,21 @@
       width: runner.width - 16,
       height: runnerBottom - runnerTop
     };
-    if (hasWallCollision(runnerLeft, runnerRight, runnerTop, runnerBottom)) {
-      endRun();
-      return;
+    if (world.invulnerableTime <= 0) {
+      const collidingWall = getWallCollision(runnerLeft, runnerRight, runnerTop, runnerBottom);
+      if (collidingWall) {
+        if (!maybeTriggerRescue("wall", collidingWall)) {
+          endRun();
+        }
+        return;
+      }
     }
     collectItems(runnerWorldX + runner.width * 0.5, runner.y + runner.height * 0.5);
-    if (updateSlideObstacle(dt, runnerRect)) {
-      endRun();
+    const hitSlide = updateSlideObstacle(dt, runnerRect);
+    if (hitSlide && world.invulnerableTime <= 0) {
+      if (!maybeTriggerRescue("slide")) {
+        endRun();
+      }
       return;
     }
     ensureGenerated();
@@ -1097,6 +1279,10 @@
     ctx.save();
     ctx.translate(x + runner.width * 0.5, y + runner.height * 0.5 + bob);
     ctx.rotate(runner.tilt);
+    if (world.invulnerableTime > 0) {
+      const pulse = 0.62 + Math.abs(Math.sin(world.elapsed * 14)) * 0.3;
+      ctx.globalAlpha = pulse;
+    }
 
     if (runner.onGround) {
       ctx.fillStyle = "rgba(20, 35, 50, 0.25)";
@@ -1135,6 +1321,52 @@
     }
 
     ctx.restore();
+  }
+
+  function drawRescueDoctor() {
+    if (!world.rescue.active) {
+      return;
+    }
+
+    if (world.rescue.stage === "reviving") {
+      const runnerX = world.width * config.runnerScreenRatio + runner.width * 0.5;
+      const runnerY = runner.y + runner.height * 0.5;
+      const halo = ctx.createRadialGradient(runnerX, runnerY, 8, runnerX, runnerY, 72);
+      halo.addColorStop(0, "rgba(240, 255, 178, 0.5)");
+      halo.addColorStop(1, "rgba(240, 255, 178, 0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(runnerX, runnerY, 72, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (assets.rescueDoctorReady) {
+      ctx.drawImage(
+        assets.rescueDoctor,
+        world.rescue.doctorX,
+        world.rescue.doctorY,
+        world.rescue.doctorWidth,
+        world.rescue.doctorHeight
+      );
+      return;
+    }
+
+    ctx.fillStyle = "#fefefe";
+    fillRoundedRect(
+      world.rescue.doctorX,
+      world.rescue.doctorY,
+      world.rescue.doctorWidth,
+      world.rescue.doctorHeight,
+      10
+    );
+    ctx.fillStyle = "#d13535";
+    fillRoundedRect(
+      world.rescue.doctorX + world.rescue.doctorWidth * 0.36,
+      world.rescue.doctorY + world.rescue.doctorHeight * 0.2,
+      world.rescue.doctorWidth * 0.28,
+      world.rescue.doctorHeight * 0.12,
+      6
+    );
   }
 
   function drawCasinoMode() {
@@ -1228,6 +1460,7 @@
     drawSlideObstacle();
     drawCollectibles();
     drawRunner();
+    drawRescueDoctor();
   }
 
   function onFrame(timestamp) {
@@ -1237,6 +1470,8 @@
 
     if (world.mode === "running") {
       update(dt);
+    } else if (world.mode === "rescue") {
+      updateRescue(dt);
     } else {
       world.elapsed += dt;
     }
@@ -1269,20 +1504,27 @@
       }
       startRun();
     });
-    shareLink.addEventListener("click", (event) => {
+    shareLink.addEventListener("click", async (event) => {
       if (!navigator.share) {
         return;
       }
       event.preventDefault();
       const score = Number.parseInt(shareLink.dataset.score || "0", 10) || 0;
       const preset = getActivePreset();
-      navigator
-        .share({
-          title: `${preset.name}'s Bonkers Cruise Dash`,
-          text: `I scored ${score} with ${preset.name} on Bonkers Cruise Dash.`,
-          url: shareLink.href
-        })
-        .catch(() => {});
+      const shareData = {
+        title: `${preset.name}'s Bonkers Cruise Dash`,
+        text: `I scored ${score} with ${preset.name} on Bonkers Cruise Dash.`,
+        url: shareLink.href
+      };
+      const shareFile = await buildShareImageFile();
+      if (
+        shareFile &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [shareFile] })
+      ) {
+        shareData.files = [shareFile];
+      }
+      navigator.share(shareData).catch(() => {});
     });
     window.addEventListener("resize", resizeCanvas);
     window.addEventListener("keydown", (event) => {
@@ -1321,6 +1563,7 @@
   }
 
   resizeCanvas();
+  parseSharedRunnerFromUrl();
   resetWorld();
   showOverlay(
     "Bryan's Bonkers Cruise Dash",
