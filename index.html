@@ -21,45 +21,73 @@
 <body>
   <main class="game-shell">
     <canvas id="gameCanvas" aria-label="Side-scrolling runner game"></canvas>
+    <section id="splashScreen" class="splash-screen" aria-label="Opening splash screen">
+      <div class="splash-card">
+        <div class="splash-art-frame" aria-hidden="true">
+          <img
+            class="splash-image"
+            src="assets/images/bryan-splash.png"
+            alt="Bryan splash artwork"
+            draggable="false"
+          >
+        </div>
+        <button id="splashContinueButton" class="splash-continue" type="button">Press Start</button>
+      </div>
+    </section>
     <section class="hud" aria-live="polite">
-      <div class="hud-item">Score: <span id="scoreValue">0</span></div>
-      <div class="hud-item">Speed: <span id="speedValue">0</span></div>
-      <div class="hud-item">Level: <span id="levelValue">1</span></div>
-      <div class="hud-item hud-destination">Destination: <span id="destinationValue">Existing Cruise Deck</span></div>
-      <div class="hud-item">Next: <span id="nextLevelValue">8 pts to L2</span></div>
-      <button id="helpButton" class="hud-help" type="button" aria-haspopup="dialog" aria-controls="notesDialog">
-        Help &amp; Notes
-      </button>
+      <div class="hud-item">
+        <span class="hud-label">Score</span>
+        <span id="scoreValue" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Speed</span>
+        <span id="speedValue" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Level</span>
+        <span id="levelValue" class="hud-value">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Next</span>
+        <span id="nextLevelValue" class="hud-value">8 pts to L2</span>
+      </div>
     </section>
     <section class="overlay" id="overlay">
       <div class="overlay-card">
-        <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
-        <p class="subtitle">Tap, click, or press Space / Arrow Up to jump.</p>
-        <div class="character-picker">
-          <label for="characterSelect">Runner</label>
-          <select id="characterSelect">
-            <option value="bryan">Bryan + Pill</option>
-            <option value="barbra">Barbra + Morning Beer</option>
-            <option value="kyle">Kyle + Champagne</option>
-          </select>
-          <p id="characterDetails" class="character-details"></p>
+        <div class="overlay-heading">
+          <p class="start-marquee">Press Start</p>
+          <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
+          <p class="subtitle">Tap, click, or press Space / Arrow Up to jump.</p>
         </div>
-        <div class="start-level-picker">
-          <label for="startLevelSelect">Start Level</label>
-          <select id="startLevelSelect">
-            <option value="1">Level 1 - Existing Cruise Deck</option>
-          </select>
-          <p id="startLevelDetails" class="start-level-details"></p>
-        </div>
-        <ul class="tips" aria-label="How to play">
-          <li>Collect drinks to increase your score.</li>
-          <li>Level path: Existing Cruise Deck → Island Adventure with adults-only pool → Bahamas → Cruise Deck → Miami.</li>
-          <li>Grab bonus coins for a casino slot pull and extra points.</li>
-          <li>Level up milestones: 8, 18, 31, and 46 points.</li>
-          <li>Each level unlock restarts the run section while keeping your speed momentum.</li>
-          <li>Unlocked levels are saved; pick any unlocked level from Start Level.</li>
-          <li>There is no jump button — jump anywhere on screen.</li>
-        </ul>
+        <section class="menu-panels">
+          <div class="menu-panel menu-panel-setup">
+            <div class="character-picker">
+              <label for="characterSelect">Runner</label>
+              <select id="characterSelect">
+                <option value="bryan">Bryan + Pill</option>
+                <option value="barbra">Barbra + Morning Beer</option>
+                <option value="kyle">Kyle + Champagne</option>
+              </select>
+              <p id="characterDetails" class="character-details"></p>
+            </div>
+            <div class="start-level-picker">
+              <label for="startLevelSelect">Start Level</label>
+              <select id="startLevelSelect">
+                <option value="1">Level 1 - Existing Cruise Deck</option>
+              </select>
+              <p id="startLevelDetails" class="start-level-details"></p>
+            </div>
+            <button
+              id="helpButton"
+              class="menu-help"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="notesDialog"
+            >
+              Help
+            </button>
+          </div>
+        </section>
         <div class="overlay-actions">
           <button id="actionButton" type="button">Start Run</button>
           <a id="shareLink" class="share-link hidden" href="#" target="_blank" rel="noopener">
