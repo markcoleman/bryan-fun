@@ -43,6 +43,7 @@ body {
   top: max(10px, env(safe-area-inset-top));
   left: max(10px, env(safe-area-inset-left));
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   z-index: 5;
 }
@@ -55,6 +56,22 @@ body {
   font-weight: 700;
   box-shadow: 0 6px 16px var(--hud-shadow);
   backdrop-filter: blur(3px);
+}
+
+.hud-help {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: clamp(0.85rem, 2.8vw, 1rem);
+  font-weight: 700;
+  color: #fff;
+  background: rgba(19, 39, 58, 0.85);
+  box-shadow: 0 6px 16px var(--hud-shadow);
+  cursor: pointer;
+}
+
+.hud-help:hover {
+  filter: brightness(1.06);
 }
 
 .overlay {
@@ -83,6 +100,94 @@ body {
   display: grid;
   gap: 12px;
   backdrop-filter: blur(4px);
+}
+
+.notes-dialog {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  background: rgba(9, 20, 32, 0.62);
+  z-index: 12;
+  padding: 20px;
+}
+
+.notes-dialog.hidden {
+  display: none;
+}
+
+.notes-card {
+  width: min(95vw, 620px);
+  max-height: min(88vh, 760px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(9, 20, 32, 0.94);
+  color: #fff;
+  box-shadow: 0 20px 36px rgba(0, 0, 0, 0.35);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.notes-card h2 {
+  margin: 0;
+  font-size: clamp(1.2rem, 4vw, 1.7rem);
+}
+
+.notes-intro {
+  margin: 0;
+  font-size: 0.94rem;
+  opacity: 0.94;
+}
+
+.notes-scroll {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 12px;
+  overflow-y: auto;
+  min-height: 150px;
+  max-height: min(58vh, 470px);
+}
+
+.notes-version {
+  margin: 0 0 14px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.notes-version:last-child {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.notes-version h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.notes-version ul {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.notes-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+#notesCloseButton {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
 }
 
 .title {
@@ -169,7 +274,10 @@ body {
 }
 
 #actionButton:focus-visible,
-.share-link:focus-visible {
+.share-link:focus-visible,
+#notesCloseButton:focus-visible,
+.hud-help:focus-visible,
+.notes-scroll:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 3px;
 }
