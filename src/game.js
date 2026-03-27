@@ -46,7 +46,9 @@
     rescueDoctorHeight: 124,
     rescueDoctorSpeed: 520,
     rescueReviveHold: 0.55,
-    rescuePostInvulnerability: 1.4
+    rescuePostInvulnerability: 1.4,
+    cruiseModeDuration: 7.5,
+    cruisePowerupSpawnChance: 0.14
   };
   const imagePath = (fileName) => `assets/images/${fileName}`;
 
@@ -100,7 +102,7 @@
     kyle: {
       name: "Kyle",
       collectibleName: "Champagne",
-      details: "Higher jumps and smoother landings with moderate acceleration.",
+      details: "Higher jumps and smoother landings with moderate acceleration. Can trigger temporary Cruise Kyle mode.",
       runnerIdleSrc: imagePath("kyle.png"),
       runnerStepSrc: imagePath("kyle2.png"),
       runnerJumpSrc: imagePath("kyle-jump.png"),
@@ -133,7 +135,7 @@
   let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "1.6.0",
+    currentVersion: "1.7.0",
     notes: [
       {
         version: "1.2.0",
@@ -186,6 +188,16 @@
           "After revive, your run resumes from the crash moment with score and speed preserved, plus a short invulnerability window.",
           "Updated share behavior so Web Share uses the selected runner image instead of always defaulting to Bryan.",
           "Share links now include the selected runner so shared URLs reopen with the right character."
+        ]
+      },
+      {
+        version: "1.7.0",
+        date: "2026-03-27",
+        title: "Cruise Kyle mode",
+        bullets: [
+          "Added a Kyle-only Cruise Mode power-up that temporarily turns Kyle into a giant bulldozer.",
+          "Cruise Kyle scales up dramatically, cannot jump, and smashes umbrellas and slide obstacles on contact.",
+          "While Cruise Mode is active, Kyle auto-collects nearby drinks and bonus pickups for instant score and speed gains."
         ]
       }
     ],
@@ -292,7 +304,11 @@
       pendingPull: false,
       pendingResume: false
     },
-    invulnerableTime: 0
+    invulnerableTime: 0,
+    cruise: {
+      active: false,
+      timeLeft: 0
+    }
   };
 
   const runner = {
@@ -485,6 +501,8 @@
     world.casino.pendingPull = false;
     world.casino.pendingResume = false;
     world.invulnerableTime = 0;
+    world.cruise.active = false;
+    world.cruise.timeLeft = 0;
 
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
@@ -749,6 +767,9 @@
     if (world.mode !== "running") {
       return;
     }
+    if (world.cruise.active) {
+      return;
+    }
     runner.jumpBuffer = 0.12;
     attemptJump();
   }
@@ -786,6 +807,32 @@
       a.top < b.top + b.height &&
       a.top + a.height > b.top
     );
+  }
+
+  function getRunnerScaleMultiplier() {
+    return world.cruise.active ? 3 : 1;
+  }
+
+  function activateCruiseMode() {
+    world.cruise.active = true;
+    world.cruise.timeLeft = config.cruiseModeDuration;
+    runner.vy = 0;
+    runner.onGround = true;
+    runner.coyoteTime = 0;
+    runner.jumpBuffer = 0;
+  }
+
+  function updateCruiseMode(dt) {
+    if (!world.cruise.active) {
+      return;
+    }
+    world.cruise.timeLeft = Math.max(0, world.cruise.timeLeft - dt);
+    runner.vy = 0;
+    runner.onGround = true;
+    runner.y = world.groundY - runner.height;
+    if (world.cruise.timeLeft <= 0) {
+      world.cruise.active = false;
+    }
   }
 
 
@@ -854,6 +901,8 @@
   }
 
   function collectItems(runnerCenterX, runnerCenterY) {
+    const isCruise = world.cruise.active;
+    const pickupPadding = isCruise ? config.collectiblePickupPadding + 70 : config.collectiblePickupPadding;
     for (const item of world.collectibles) {
       if (item.taken) {
         continue;
@@ -861,12 +910,21 @@
       const bobY = item.y + Math.sin(world.elapsed * 5 + item.phase) * 5;
       const dx = runnerCenterX - item.x;
       const dy = runnerCenterY - bobY;
-      const radius = item.radius + config.collectiblePickupPadding;
+      const radius = item.radius + pickupPadding;
       if (dx * dx + dy * dy <= radius * radius) {
         item.taken = true;
         if (item.type === "bonus") {
+          if (isCruise) {
+            world.score += 5;
+            world.speed = Math.min(config.maxSpeed, world.speed + 10);
+            continue;
+          }
           triggerCasinoBonus();
           return;
+        }
+        if (item.type === "cruise") {
+          activateCruiseMode();
+          continue;
         }
         world.score += 1;
         world.speed = Math.min(config.maxSpeed, world.speed + getProgressiveSpeedGain());
@@ -946,6 +1004,21 @@
       label: preset.collectibleName,
       taken: false
     });
+    if (currentCharacter === "kyle" && Math.random() < config.cruisePowerupSpawnChance) {
+      world.collectibles.push({
+        x: x + width * 0.5 + 52,
+        y:
+          world.groundY -
+          height -
+          randomBetween(config.collectibleLiftMin + 32, config.collectibleLiftMax + 54),
+        radius: 17,
+        width: 38,
+        height: 38,
+        phase: Math.random() * Math.PI * 2,
+        type: "cruise",
+        taken: false
+      });
+    }
     if (Math.random() < config.bonusSpawnChance) {
       world.collectibles.push({
         x: x + width * 0.5 - 24,
@@ -993,6 +1066,8 @@
       world.invulnerableTime = Math.max(0, world.invulnerableTime - dt);
     }
 
+    updateCruiseMode(dt);
+
     if (runner.jumpBuffer > 0) {
       runner.jumpBuffer = Math.max(0, runner.jumpBuffer - dt);
     }
@@ -1001,12 +1076,19 @@
     }
     attemptJump();
 
-    runner.vy += config.gravity * dt;
-    runner.y += runner.vy * dt;
+    if (!world.cruise.active) {
+      runner.vy += config.gravity * dt;
+      runner.y += runner.vy * dt;
+    }
 
     const runnerWorldX = world.cameraX + world.width * config.runnerScreenRatio;
-    const worldLeft = runnerWorldX;
-    const worldRight = runnerWorldX + runner.width;
+    const scaleMultiplier = getRunnerScaleMultiplier();
+    const collisionWidth = runner.width * scaleMultiplier;
+    const collisionHeight = runner.height * scaleMultiplier;
+    const runnerCenterY = runner.y + runner.height * 0.5;
+    const collisionTop = runnerCenterY - collisionHeight * 0.5;
+    const worldLeft = runnerWorldX + (runner.width - collisionWidth) * 0.5;
+    const worldRight = worldLeft + collisionWidth;
     if (runner.y + runner.height >= world.groundY) {
       runner.y = world.groundY - runner.height;
       runner.vy = 0;
@@ -1019,32 +1101,36 @@
       runner.onGround = false;
     }
 
-    const runnerTop = runner.y + 6;
-    const runnerBottom = runner.y + runner.height - 5;
+    const runnerTop = collisionTop + 6;
+    const runnerBottom = collisionTop + collisionHeight - 5;
     const runnerLeft = worldLeft + 8;
     const runnerRight = worldRight - 8;
     const runnerRect = {
-      left: world.width * config.runnerScreenRatio + 8,
+      left: world.width * config.runnerScreenRatio + (runner.width - collisionWidth) * 0.5 + 8,
       top: runnerTop,
-      width: runner.width - 16,
+      width: Math.max(12, collisionWidth - 16),
       height: runnerBottom - runnerTop
     };
     if (world.invulnerableTime <= 0) {
       const collidingWall = getWallCollision(runnerLeft, runnerRight, runnerTop, runnerBottom);
       if (collidingWall) {
-        if (!maybeTriggerRescue("wall", collidingWall)) {
+        if (world.cruise.active) {
+          clearCollidingWall(collidingWall);
+        } else if (!maybeTriggerRescue("wall", collidingWall)) {
           endRun();
+          return;
         }
-        return;
       }
     }
     collectItems(runnerWorldX + runner.width * 0.5, runner.y + runner.height * 0.5);
     const hitSlide = updateSlideObstacle(dt, runnerRect);
     if (hitSlide && world.invulnerableTime <= 0) {
-      if (!maybeTriggerRescue("slide")) {
+      if (world.cruise.active) {
+        world.slide.active = false;
+      } else if (!maybeTriggerRescue("slide")) {
         endRun();
+        return;
       }
-      return;
     }
     ensureGenerated();
     pruneWorld();
@@ -1222,7 +1308,20 @@
       ctx.arc(x, y + 2, item.radius + 11, 0, Math.PI * 2);
       ctx.fill();
 
-      if (!isBonus && activeAssets.collectible.ready) {
+      if (item.type === "cruise") {
+        ctx.fillStyle = "#b8ebff";
+        ctx.beginPath();
+        ctx.arc(x, y, item.radius + 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#2179b5";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = "#114f7a";
+        ctx.font = "bold 16px Trebuchet MS, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🚢", x, y + 1);
+      } else if (!isBonus && activeAssets.collectible.ready) {
         ctx.drawImage(
           activeAssets.collectible.image,
           x - drawW * 0.5,
@@ -1269,7 +1368,7 @@
     runner.tilt += (Math.max(-0.2, Math.min(0.2, -runner.vy * 0.0008)) - runner.tilt) * 0.2;
     const bob = runner.onGround ? Math.sin(runCycle) * 1.9 : 0;
     const baseDrawScale = 1.24;
-    const visualScale = baseDrawScale * Math.max(1, preset.runnerScale || 1);
+    const visualScale = baseDrawScale * Math.max(1, preset.runnerScale || 1) * getRunnerScaleMultiplier();
     const drawW = runner.width * visualScale;
     const drawH = runner.height * visualScale;
     const baseDrawH = runner.height * baseDrawScale;
@@ -1296,6 +1395,13 @@
         0,
         Math.PI * 2
       );
+      ctx.fill();
+    }
+
+    if (world.cruise.active) {
+      ctx.fillStyle = "rgba(255, 236, 102, 0.32)";
+      ctx.beginPath();
+      ctx.arc(0, 0, drawW * 0.42, 0, Math.PI * 2);
       ctx.fill();
     }
 
