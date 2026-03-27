@@ -5,10 +5,17 @@ Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the r
 ## Gameplay
 
 - Jump over walls.
-- Play as `bryan.png` as the main character.
-- Collect `drink.png` while jumping.
+- Play as `assets/images/bryan.png` as the main character.
+- Collect `assets/images/drink.png` while jumping.
 - Every drink collected increases running speed.
 - Includes simple parallax background layers.
+
+## Project Structure
+
+- `index.html`: app shell and UI markup.
+- `src/game.js`: gameplay logic and rendering.
+- `src/style.css`: layout and visual styles.
+- `assets/images/`: all sprite and background art.
 
 ## Controls
 
