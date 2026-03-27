@@ -107,8 +107,23 @@
     }
   };
 
+  const availableCharacters = new Set(Object.keys(characterPresets));
+
+  function isValidCharacter(value) {
+    return availableCharacters.has(value);
+  }
+
+  function getCharacterFromUrl() {
+    const selected = new URL(window.location.href).searchParams.get("character");
+    if (!selected) {
+      return null;
+    }
+    const normalized = selected.toLowerCase();
+    return isValidCharacter(normalized) ? normalized : null;
+  }
+
   const characterAssets = {};
-  let currentCharacter = "bryan";
+  let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
     currentVersion: "1.5.0",
@@ -159,6 +174,13 @@
     isOpen: false,
     triggerEl: null
   };
+  const shareMeta = {
+    ogImage: document.querySelector('meta[property="og:image"]'),
+    ogImageAlt: document.querySelector('meta[property="og:image:alt"]'),
+    ogImageWidth: document.querySelector('meta[property="og:image:width"]'),
+    ogImageHeight: document.querySelector('meta[property="og:image:height"]'),
+    twitterImage: document.querySelector('meta[name="twitter:image"]')
+  };
 
   function loadImageWithReadyFlag(src, fallbackSrc = null) {
     const image = new Image();
@@ -169,6 +191,9 @@
     let usedFallback = false;
     image.onload = () => {
       record.ready = true;
+      if (characterAssets[currentCharacter]?.idle.image === image) {
+        updateShareImageMeta();
+      }
     };
     image.onerror = () => {
       if (fallbackSrc && !usedFallback) {
@@ -430,9 +455,49 @@
     updateHud();
   }
 
+  function syncCharacterInLocation() {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("character") === currentCharacter) {
+      return;
+    }
+    url.searchParams.set("character", currentCharacter);
+    window.history.replaceState(null, "", url.toString());
+  }
+
+  function updateShareImageMeta() {
+    const preset = getActivePreset();
+    const activeAssets = getActiveAssets();
+    const shareImageUrl = new URL(preset.runnerIdleSrc, window.location.href).toString();
+
+    if (shareMeta.ogImage) {
+      shareMeta.ogImage.setAttribute("content", shareImageUrl);
+    }
+    if (shareMeta.twitterImage) {
+      shareMeta.twitterImage.setAttribute("content", shareImageUrl);
+    }
+    if (shareMeta.ogImageAlt) {
+      shareMeta.ogImageAlt.setAttribute(
+        "content",
+        `${preset.name} character from Bryan's Bonkers Cruise Dash`
+      );
+    }
+
+    const width = activeAssets.idle.image.naturalWidth || 0;
+    const height = activeAssets.idle.image.naturalHeight || 0;
+    if (width > 0 && height > 0) {
+      if (shareMeta.ogImageWidth) {
+        shareMeta.ogImageWidth.setAttribute("content", String(width));
+      }
+      if (shareMeta.ogImageHeight) {
+        shareMeta.ogImageHeight.setAttribute("content", String(height));
+      }
+    }
+  }
+
   function buildShareUrl(score) {
     const url = new URL(window.location.href);
     url.searchParams.set("score", String(score));
+    url.searchParams.set("character", currentCharacter);
     return url.toString();
   }
 
@@ -448,6 +513,17 @@
     shareLink.dataset.score = String(score);
     shareLink.textContent = `Share Score: ${score}`;
     shareLink.classList.remove("hidden");
+  }
+
+  function refreshShareLinkForCharacter() {
+    if (shareLink.classList.contains("hidden")) {
+      return;
+    }
+    const score = Number.parseInt(shareLink.dataset.score || "", 10);
+    if (!Number.isFinite(score)) {
+      return;
+    }
+    shareLink.href = buildShareUrl(score);
   }
 
   function showOverlay(title, subtitle, buttonText, shareScore = null) {
@@ -1223,7 +1299,11 @@
     });
     notesCloseButton.addEventListener("click", closeReleaseNotes);
     characterSelect.addEventListener("change", (event) => {
-      currentCharacter = event.target.value;
+      const selected = String(event.target.value || "").toLowerCase();
+      if (!isValidCharacter(selected)) {
+        return;
+      }
+      currentCharacter = selected;
       updateCharacterUi();
       if (world.mode !== "running" && world.mode !== "casino") {
         resetWorld();
@@ -1235,6 +1315,9 @@
     const preset = getActivePreset();
     characterSelect.value = currentCharacter;
     characterDetails.textContent = `${preset.name} collects ${preset.collectibleName}. ${preset.details}`;
+    updateShareImageMeta();
+    refreshShareLinkForCharacter();
+    syncCharacterInLocation();
   }
 
   resizeCanvas();
