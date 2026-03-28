@@ -23,6 +23,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   const livesValue = document.getElementById("livesValue");
   const comboValue = document.getElementById("comboValue");
   const coinValue = document.getElementById("coinValue");
+  const authHudValue = document.getElementById("authHudValue");
   const settingsButton = document.getElementById("settingsButton");
   const settingsBackButton = document.getElementById("settingsBackButton");
   const helpButton = document.getElementById("helpButton");
@@ -517,6 +518,19 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
   function getSupabaseAnonKey() {
     const fromStorage = readStoredAnonKey();
+  function updateAuthHudLabel() {
+    if (!authHudValue) {
+      return;
+    }
+    const email = authState.user?.email || "";
+    const displayName = email ? email.split("@")[0] : "Guest";
+    authHudValue.textContent = displayName || "Guest";
+    authHudValue.title = email || "Guest";
+  }
+
+      updateAuthHudLabel();
+      updateAuthHudLabel();
+    updateAuthHudLabel();
     return supabaseConfig.anonKey || fromStorage;
   }
 

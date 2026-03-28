@@ -203,11 +203,12 @@ body::after {
   left: max(10px, env(safe-area-inset-left));
   right: max(10px, env(safe-area-inset-right));
   z-index: 5;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 8px;
   align-items: stretch;
   max-width: min(980px, calc(100vw - 20px));
+  overflow: hidden;
 }
 
 .hud-item {
@@ -235,6 +236,15 @@ body::after {
   font-size: clamp(1.2rem, 3.2vw, 1.56rem);
   line-height: 0.9;
   color: var(--text-main);
+}
+
+.hud-value-account {
+  font-size: clamp(0.88rem, 2.5vw, 1.05rem);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .overlay {
@@ -887,6 +897,10 @@ body.high-contrast .hud-value {
     min-width: 84px;
     min-height: 48px;
     padding: 6px 8px;
+  }
+
+  .hud {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   #actionButton,
