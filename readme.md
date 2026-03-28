@@ -43,6 +43,24 @@ Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the r
 
 Open [index.html](/Users/markcoleman/Development/github/bryan-fun/index.html) in a browser.
 
+## Optional Supabase account flows
+
+The game now supports optional email/password account creation and sign-in using Supabase Auth.
+
+- Supabase project URL is set to `https://gzigwxvukzxyfphuzmmy.supabase.co` (Project: **Bryan-bash**, Org: **Kramnameloc**).
+- Add your Supabase anon key by setting `window.__SUPABASE_ANON_KEY__` before loading `src/game.js`, or pass it once in the URL:
+  - `http://localhost:8080/?sbAnonKey=YOUR_ANON_KEY`
+  - `https://markcoleman.github.io/bryan-fun/?sbAnonKey=YOUR_ANON_KEY`
+- The key from `sbAnonKey` is stored in local storage under `bbcd:supabaseAnonKey`.
+- In **Settings**, use:
+  - **Create Account** (email + password)
+  - **Sign In**
+  - **Sign Out**
+- If email confirmation is enabled in Supabase, the sign-up flow uses these redirect targets:
+  - Dev: `http://localhost:8080/`
+  - Prod: `https://markcoleman.github.io/bryan-fun/`
+- If no anon key is configured, account controls stay disabled and gameplay remains fully local.
+
 ## GitHub Actions
 
 - CI workflow: [ci.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/ci.yml)

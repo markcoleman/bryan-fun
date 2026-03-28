@@ -4,6 +4,7 @@ import {
   normalizeLevelId as clampLevelId
 } from "./game-logic.js";
 import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 "use strict";
 
@@ -40,6 +41,12 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   const contrastToggle = document.getElementById("contrastToggle");
   const musicVolumeRange = document.getElementById("musicVolumeRange");
   const sfxVolumeRange = document.getElementById("sfxVolumeRange");
+  const authStatus = document.getElementById("authStatus");
+  const authEmailInput = document.getElementById("authEmailInput");
+  const authPasswordInput = document.getElementById("authPasswordInput");
+  const createAccountButton = document.getElementById("createAccountButton");
+  const signInButton = document.getElementById("signInButton");
+  const signOutButton = document.getElementById("signOutButton");
   const runStats = document.getElementById("runStats");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
@@ -471,6 +478,16 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   const menuState = {
     screen: "main"
   };
+  const supabaseConfig = {
+    url: "https://gzigwxvukzxyfphuzmmy.supabase.co",
+    anonKey: window.__SUPABASE_ANON_KEY__ || "",
+    storageKey: "bbcd:supabaseAnonKey"
+  };
+  const authState = {
+    client: null,
+    user: null,
+    busy: false
+  };
   const shareMeta = {
     ogImage: document.querySelector('meta[property="og:image"]'),
     ogImageAlt: document.querySelector('meta[property="og:image:alt"]'),
@@ -478,6 +495,80 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     ogImageHeight: document.querySelector('meta[property="og:image:height"]'),
     twitterImage: document.querySelector('meta[name="twitter:image"]')
   };
+
+  function inferAuthRedirectUrl() {
+    const { origin } = window.location;
+    if (origin === "http://localhost:8080") {
+      return "http://localhost:8080/";
+    }
+    if (origin === "https://markcoleman.github.io") {
+      return "https://markcoleman.github.io/bryan-fun/";
+    }
+    return `${origin}/`;
+  }
+
+  function readStoredAnonKey() {
+    try {
+      return window.localStorage.getItem(supabaseConfig.storageKey) || "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function getSupabaseAnonKey() {
+    const fromStorage = readStoredAnonKey();
+    return supabaseConfig.anonKey || fromStorage;
+  }
+
+  function stashAnonKeyFromUrl() {
+    const url = new URL(window.location.href);
+    const urlKey = url.searchParams.get("sbAnonKey");
+    if (!urlKey) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(supabaseConfig.storageKey, urlKey);
+      url.searchParams.delete("sbAnonKey");
+      window.history.replaceState({}, "", url.toString());
+    } catch (_) {
+      // Ignore storage errors and continue without persistence.
+    }
+  }
+
+  function setAuthStatusMessage(message, isError = false) {
+    if (!authStatus) {
+      return;
+    }
+    authStatus.textContent = message;
+    authStatus.style.color = isError ? "#ffb3ad" : "#d7eff9";
+  }
+
+  function setAuthBusy(isBusy) {
+    authState.busy = isBusy;
+    const disabled = isBusy || !authState.client;
+    createAccountButton.disabled = disabled;
+    signInButton.disabled = disabled;
+    signOutButton.disabled = disabled || !authState.user;
+  }
+
+  function updateAuthUi() {
+    if (!authState.client) {
+      setAuthStatusMessage("Supabase not configured. Add window.__SUPABASE_ANON_KEY__ to enable account login.");
+      setAuthBusy(false);
+      createAccountButton.disabled = true;
+      signInButton.disabled = true;
+      signOutButton.disabled = true;
+      return;
+    }
+    if (authState.user) {
+      setAuthStatusMessage(`Signed in as ${authState.user.email || "account user"}.`);
+      authEmailInput.value = authState.user.email || authEmailInput.value;
+      signOutButton.disabled = authState.busy;
+      return;
+    }
+    setAuthStatusMessage("Not signed in.");
+    signOutButton.disabled = true;
+  }
 
   function loadImageWithReadyFlag(src, fallbackSrc = null) {
     const image = new Image();
@@ -3096,6 +3187,24 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       }
       saveAccessibilityState();
     });
+    createAccountButton?.addEventListener("click", () => {
+      createSupabaseAccount().catch(() => {
+        setAuthStatusMessage("Create account failed unexpectedly.", true);
+        setAuthBusy(false);
+      });
+    });
+    signInButton?.addEventListener("click", () => {
+      signInSupabaseAccount().catch(() => {
+        setAuthStatusMessage("Sign in failed unexpectedly.", true);
+        setAuthBusy(false);
+      });
+    });
+    signOutButton?.addEventListener("click", () => {
+      signOutSupabaseAccount().catch(() => {
+        setAuthStatusMessage("Sign out failed unexpectedly.", true);
+        setAuthBusy(false);
+      });
+    });
   }
 
   function updateCharacterUi() {
@@ -3124,6 +3233,100 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     syncCharacterInLocation();
   }
 
+  async function initializeSupabaseAuth() {
+    const anonKey = getSupabaseAnonKey();
+    if (!anonKey) {
+      updateAuthUi();
+      return;
+    }
+    authState.client = createClient(supabaseConfig.url, anonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+    const { data, error } = await authState.client.auth.getUser();
+    if (!error) {
+      authState.user = data?.user || null;
+    }
+    authState.client.auth.onAuthStateChange((_event, session) => {
+      authState.user = session?.user || null;
+      updateAuthUi();
+    });
+    updateAuthUi();
+  }
+
+  function readAuthCredentials() {
+    const email = String(authEmailInput.value || "").trim();
+    const password = String(authPasswordInput.value || "");
+    if (!email || !password) {
+      setAuthStatusMessage("Enter email and password first.", true);
+      return null;
+    }
+    return { email, password };
+  }
+
+  async function createSupabaseAccount() {
+    if (!authState.client || authState.busy) {
+      return;
+    }
+    const credentials = readAuthCredentials();
+    if (!credentials) {
+      return;
+    }
+    setAuthBusy(true);
+    const redirectTo = inferAuthRedirectUrl();
+    const { error } = await authState.client.auth.signUp({
+      email: credentials.email,
+      password: credentials.password,
+      options: { emailRedirectTo: redirectTo }
+    });
+    if (error) {
+      setAuthStatusMessage(`Create account failed: ${error.message}`, true);
+    } else {
+      setAuthStatusMessage("Account created. Check your inbox for the confirmation link.");
+      authPasswordInput.value = "";
+    }
+    setAuthBusy(false);
+    updateAuthUi();
+  }
+
+  async function signInSupabaseAccount() {
+    if (!authState.client || authState.busy) {
+      return;
+    }
+    const credentials = readAuthCredentials();
+    if (!credentials) {
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await authState.client.auth.signInWithPassword(credentials);
+    if (error) {
+      setAuthStatusMessage(`Sign in failed: ${error.message}`, true);
+    } else {
+      setAuthStatusMessage(`Signed in as ${credentials.email}.`);
+      authPasswordInput.value = "";
+    }
+    setAuthBusy(false);
+    updateAuthUi();
+  }
+
+  async function signOutSupabaseAccount() {
+    if (!authState.client || authState.busy) {
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await authState.client.auth.signOut();
+    if (error) {
+      setAuthStatusMessage(`Sign out failed: ${error.message}`, true);
+    } else {
+      setAuthStatusMessage("Signed out.");
+    }
+    setAuthBusy(false);
+    updateAuthUi();
+  }
+
   resizeCanvas();
   parseSharedRunnerFromUrl();
   readAccessibilityState();
@@ -3131,6 +3334,13 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   hydrateProgressionState();
   unlockLevel(1);
   updateCharacterUi();
+  stashAnonKeyFromUrl();
+  setAuthBusy(false);
+  updateAuthUi();
+  initializeSupabaseAuth().catch(() => {
+    setAuthStatusMessage("Supabase initialization failed. Check your anon key setup.", true);
+    setAuthBusy(false);
+  });
   setupInput();
   showSplashScreen();
   requestAnimationFrame(onFrame);
