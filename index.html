@@ -59,6 +59,10 @@
         <span class="hud-label">Combo</span>
         <span id="comboValue" class="hud-value">x1.0</span>
       </div>
+      <div class="hud-item">
+        <span class="hud-label">Coins</span>
+        <span id="coinValue" class="hud-value">0</span>
+      </div>
     </section>
     <section class="overlay" id="overlay">
       <div class="overlay-card">
@@ -68,54 +72,76 @@
           <p class="subtitle">Tap, click, or press Space / Arrow Up to jump.</p>
         </div>
         <section class="menu-panels">
-          <div class="menu-panel menu-panel-setup">
-            <div class="character-picker">
-              <label for="characterSelect">Runner</label>
-              <select id="characterSelect">
-                <option value="bryan">Bryan + Pill</option>
-                <option value="barbra">Barbra + Morning Beer</option>
-                <option value="kyle">Kyle + Champagne</option>
-              </select>
-              <p id="characterDetails" class="character-details"></p>
+          <section id="mainMenuScreen" class="menu-screen" aria-label="Main menu">
+            <div class="menu-panel menu-panel-setup">
+              <p class="menu-panel-title">Quick Setup</p>
+              <div class="character-picker">
+                <label for="characterSelect">Runner</label>
+                <select id="characterSelect">
+                  <option value="bryan">Bryan + Pill</option>
+                  <option value="barbra">Barbra + Morning Beer</option>
+                  <option value="kyle">Kyle + Champagne</option>
+                </select>
+                <p id="characterDetails" class="character-details"></p>
+              </div>
+              <div class="start-level-picker">
+                <label for="startLevelSelect">Start Level</label>
+                <select id="startLevelSelect">
+                  <option value="1">Level 1 - Existing Cruise Deck</option>
+                </select>
+                <p id="startLevelDetails" class="start-level-details"></p>
+              </div>
+              <div class="menu-quick-actions">
+                <button
+                  id="settingsButton"
+                  class="menu-nav-button"
+                  type="button"
+                  aria-controls="settingsMenuScreen"
+                  aria-expanded="false"
+                >
+                  Settings
+                </button>
+                <button
+                  id="helpButton"
+                  class="menu-nav-button menu-help"
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-controls="notesDialog"
+                >
+                  Help &amp; Notes
+                </button>
+              </div>
             </div>
-            <div class="start-level-picker">
-              <label for="startLevelSelect">Start Level</label>
-              <select id="startLevelSelect">
-                <option value="1">Level 1 - Existing Cruise Deck</option>
-              </select>
-              <p id="startLevelDetails" class="start-level-details"></p>
+          </section>
+          <section id="settingsMenuScreen" class="menu-screen hidden" aria-label="Settings menu">
+            <div class="menu-panel menu-panel-settings">
+              <p class="menu-panel-title">Settings</p>
+              <div class="accessibility-options">
+                <label for="controlSchemeSelect">Controls</label>
+                <select id="controlSchemeSelect">
+                  <option value="right">Space / W / ↑ / ↓</option>
+                  <option value="left">Space / W / ↑ / ←</option>
+                </select>
+                <label for="speedScaleSelect">Game Speed</label>
+                <select id="speedScaleSelect">
+                  <option value="0.85">Relaxed (85%)</option>
+                  <option value="1" selected>Normal (100%)</option>
+                  <option value="1.15">Fast (115%)</option>
+                </select>
+                <label class="checkbox-row" for="contrastToggle">
+                  <input id="contrastToggle" type="checkbox">
+                  High Contrast HUD
+                </label>
+                <label for="musicVolumeRange">Music Volume</label>
+                <input id="musicVolumeRange" type="range" min="0" max="100" step="5" value="70">
+                <label for="sfxVolumeRange">SFX Volume</label>
+                <input id="sfxVolumeRange" type="range" min="0" max="100" step="5" value="80">
+              </div>
             </div>
-            <div class="accessibility-options">
-              <label for="controlSchemeSelect">Controls</label>
-              <select id="controlSchemeSelect">
-                <option value="right">Space / W / ↑ / ↓</option>
-                <option value="left">Space / W / ↑ / ←</option>
-              </select>
-              <label for="speedScaleSelect">Game Speed</label>
-              <select id="speedScaleSelect">
-                <option value="0.85">Relaxed (85%)</option>
-                <option value="1" selected>Normal (100%)</option>
-                <option value="1.15">Fast (115%)</option>
-              </select>
-              <label class="checkbox-row" for="contrastToggle">
-                <input id="contrastToggle" type="checkbox">
-                High Contrast HUD
-              </label>
-              <label class="checkbox-row" for="audioToggle">
-                <input id="audioToggle" type="checkbox" checked>
-                Audio Enabled
-              </label>
-            </div>
-            <button
-              id="helpButton"
-              class="menu-help"
-              type="button"
-              aria-haspopup="dialog"
-              aria-controls="notesDialog"
-            >
-              Help
+            <button id="settingsBackButton" class="menu-nav-button settings-back" type="button">
+              Back to Main Menu
             </button>
-          </div>
+          </section>
         </section>
         <div class="overlay-actions">
           <button id="actionButton" type="button">Start Run</button>
@@ -123,6 +149,7 @@
             Share Score
           </a>
         </div>
+        <section id="runStats" class="run-stats hidden" aria-live="polite"></section>
       </div>
     </section>
     <section

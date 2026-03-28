@@ -23,6 +23,10 @@
   box-sizing: border-box;
 }
 
+.hidden {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -237,12 +241,15 @@ body::after {
   position: absolute;
   inset: 0;
   display: grid;
-  place-items: center;
+  justify-items: center;
+  align-items: start;
   text-align: left;
   background: radial-gradient(circle at 50% 30%, rgba(48, 83, 117, 0.42), rgba(3, 11, 20, 0.88));
   color: var(--text-main);
   z-index: 6;
   padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
   opacity: 0;
   transform: translateY(14px);
   transition:
@@ -276,6 +283,7 @@ body::after {
 .overlay-card {
   position: relative;
   width: min(96vw, 980px);
+  max-height: calc(100dvh - 48px);
   border: 3px solid var(--line-strong);
   background: linear-gradient(180deg, rgba(13, 28, 44, 0.95), rgba(8, 18, 30, 0.95));
   box-shadow:
@@ -284,6 +292,8 @@ body::after {
   padding: 18px;
   display: grid;
   gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .overlay-heading {
@@ -343,6 +353,11 @@ body::after {
   gap: 12px;
 }
 
+.menu-screen {
+  display: grid;
+  gap: 12px;
+}
+
 .menu-panel {
   border: 2px solid var(--line-muted);
   background: linear-gradient(180deg, rgba(13, 31, 50, 0.94), rgba(8, 20, 34, 0.94));
@@ -393,6 +408,12 @@ body::after {
   outline: none;
 }
 
+#musicVolumeRange,
+#sfxVolumeRange {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 #characterSelect:focus,
 #startLevelSelect:focus,
 #controlSchemeSelect:focus,
@@ -411,8 +432,12 @@ body::after {
 .accessibility-options {
   display: grid;
   gap: 8px;
-  padding-top: 4px;
-  border-top: 1px solid rgba(118, 255, 212, 0.25);
+}
+
+.menu-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .accessibility-options label {
@@ -465,6 +490,7 @@ body.high-contrast .hud-value {
   }
 }
 
+.menu-nav-button,
 .menu-help {
   border: 2px solid #95d9fb;
   border-radius: 0;
@@ -480,13 +506,19 @@ body.high-contrast .hud-value {
   cursor: pointer;
 }
 
+.menu-nav-button:hover,
 .menu-help:hover {
   filter: brightness(1.08);
 }
 
+.menu-nav-button:active,
 .menu-help:active {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0 #091423;
+}
+
+.settings-back {
+  width: 100%;
 }
 
 .overlay-actions {
@@ -495,6 +527,33 @@ body.high-contrast .hud-value {
   justify-content: center;
   align-items: center;
   gap: 10px;
+}
+
+.run-stats {
+  border: 2px solid var(--line-muted);
+  background: rgba(5, 15, 26, 0.9);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.run-stats.hidden {
+  display: none;
+}
+
+.run-stats h3 {
+  margin: 0;
+  font-family: var(--pixel-font);
+  font-size: 0.55rem;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-stats p {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #d7eff9;
 }
 
 #actionButton {
@@ -547,10 +606,19 @@ body.high-contrast .hud-value {
 
 .overlay[data-layout="compact"] .overlay-card {
   width: min(92vw, 640px);
+  max-height: min(84dvh, 620px);
 }
 
 .overlay[data-layout="start"] .overlay-card {
   width: min(86vw, 660px);
+}
+
+.overlay[data-layout="compact"] {
+  align-items: center;
+}
+
+.overlay[data-layout="start"] {
+  align-items: start;
 }
 
 .overlay[data-layout="compact"] .menu-panels,
@@ -681,9 +749,12 @@ body.high-contrast .hud-value {
 #notesCloseButton:focus-visible,
 .splash-continue:focus-visible,
 .menu-help:focus-visible,
+.menu-nav-button:focus-visible,
 .notes-scroll:focus-visible,
 #characterSelect:focus-visible,
-#startLevelSelect:focus-visible {
+#startLevelSelect:focus-visible,
+#controlSchemeSelect:focus-visible,
+#speedScaleSelect:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 2px;
 }
@@ -737,6 +808,7 @@ body.high-contrast .hud-value {
   .overlay-card {
     padding: 14px;
     gap: 12px;
+    max-height: calc(100dvh - 24px);
   }
 
   .hud {
@@ -753,9 +825,14 @@ body.high-contrast .hud-value {
 
   #actionButton,
   .share-link,
+  .menu-nav-button,
   .menu-help {
     width: 100%;
     min-width: 0;
+  }
+
+  .menu-quick-actions {
+    grid-template-columns: 1fr;
   }
 
   .touch-hint {

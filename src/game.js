@@ -21,7 +21,12 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   const nextLevelValue = document.getElementById("nextLevelValue");
   const livesValue = document.getElementById("livesValue");
   const comboValue = document.getElementById("comboValue");
+  const coinValue = document.getElementById("coinValue");
+  const settingsButton = document.getElementById("settingsButton");
+  const settingsBackButton = document.getElementById("settingsBackButton");
   const helpButton = document.getElementById("helpButton");
+  const mainMenuScreen = document.getElementById("mainMenuScreen");
+  const settingsMenuScreen = document.getElementById("settingsMenuScreen");
   const notesDialog = document.getElementById("notesDialog");
   const notesIntro = document.getElementById("notesIntro");
   const notesScrollRegion = document.getElementById("notesScrollRegion");
@@ -33,7 +38,9 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   const controlSchemeSelect = document.getElementById("controlSchemeSelect");
   const speedScaleSelect = document.getElementById("speedScaleSelect");
   const contrastToggle = document.getElementById("contrastToggle");
-  const audioToggle = document.getElementById("audioToggle");
+  const musicVolumeRange = document.getElementById("musicVolumeRange");
+  const sfxVolumeRange = document.getElementById("sfxVolumeRange");
+  const runStats = document.getElementById("runStats");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
   const uiPixelFont = "\"Press Start 2P\", \"Courier New\", monospace";
@@ -81,7 +88,9 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     speedBoostDuration: 2.4,
     speedBoostEveryCombos: 2,
     speedBoostAmount: 36,
-    screenTransitionMs: 320
+    screenTransitionMs: 320,
+    milestonePopupDuration: 1.35,
+    lowBarClearance: 42
   };
   const imagePath = (fileName) => `assets/images/${fileName}`;
   const levelBackgroundSources = [
@@ -202,6 +211,8 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       name: "Bryan",
       collectibleName: "Pill",
       details: "Balanced speed and control. Uses existing Bryan + pill art.",
+      abilityLabel: "Steady Runner",
+      abilityDetail: "Balanced jump and slide timing for reliable runs.",
       runnerIdleSrc: imagePath("characters/bryan.png"),
       runnerStepSrc: imagePath("characters/bryan2.png"),
       runnerJumpSrc: imagePath("characters/bryan-jump.png"),
@@ -209,6 +220,8 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       runnerScale: 1,
       speedGainMultiplier: 1,
       jumpVelocityMultiplier: 1,
+      slideDurationMultiplier: 1,
+      unlockCost: 0,
       fallbackColor: "#f26a4b",
       collectibleGlyph: "💊",
       collectibleColor: "#ffd95e"
@@ -217,6 +230,8 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       name: "Barbra",
       collectibleName: "Morning Beer",
       details: "Extra zip after pickups, with a slightly lower jump arc.",
+      abilityLabel: "Long Slide",
+      abilityDetail: "Slides 25% longer for tighter low-obstacle clears.",
       runnerIdleSrc: imagePath("characters/barbra.png"),
       runnerStepSrc: imagePath("characters/barbra2.png"),
       runnerJumpSrc: imagePath("characters/barbra-jump.png"),
@@ -225,6 +240,8 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       runnerScale: 1.5,
       speedGainMultiplier: 1.08,
       jumpVelocityMultiplier: 0.96,
+      slideDurationMultiplier: 1.25,
+      unlockCost: 80,
       fallbackColor: "#f48cb4",
       collectibleGlyph: "🍺",
       collectibleColor: "#ffc857"
@@ -233,6 +250,8 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       name: "Kyle",
       collectibleName: "Champagne",
       details: "Higher jumps and smoother landings with moderate acceleration.",
+      abilityLabel: "Skybound",
+      abilityDetail: "Higher jump arc makes long obstacle chains easier.",
       runnerIdleSrc: imagePath("characters/kyle.png"),
       runnerStepSrc: imagePath("characters/kyle2.png"),
       runnerJumpSrc: imagePath("characters/kyle-jump.png"),
@@ -240,6 +259,8 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       runnerScale: 1.5,
       speedGainMultiplier: 0.94,
       jumpVelocityMultiplier: 1.05,
+      slideDurationMultiplier: 1,
+      unlockCost: 130,
       fallbackColor: "#7da2ff",
       collectibleGlyph: "🍾",
       collectibleColor: "#cde88f"
@@ -265,8 +286,29 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "2.2.0",
+    currentVersion: "2.4.0",
     notes: [
+      {
+        version: "2.4.0",
+        date: "2026-03-28",
+        title: "Main menu settings split + scrolling improvements",
+        bullets: [
+          "Split start flow into dedicated Main Menu and Settings screens for easier navigation.",
+          "Added a direct Settings button from the main menu with one-tap return back.",
+          "Improved menu overflow behavior so full menu content remains reachable on smaller displays."
+        ]
+      },
+      {
+        version: "2.3.0",
+        date: "2026-03-28",
+        title: "Run feedback + progression expansion",
+        bullets: [
+          "Added near-runner heart lives, coin counter, and milestone combo/checkpoint popups.",
+          "Added a persistent coin bank with unlockable runners and gear in the setup menu.",
+          "Added separate music and SFX sliders plus end-of-run stats and achievement progress.",
+          "Added new obstacle types (beach balls, surfboards, low bars) and rotating scenery sections."
+        ]
+      },
       {
         version: "2.2.0",
         date: "2026-03-28",
@@ -390,25 +432,32 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   };
   const progressionState = {
     storageKey: "bbcd:maxUnlockedLevel",
+    bankStorageKey: "bbcd:coinBank",
+    unlockStorageKey: "bbcd:unlockedCharacters",
     maxUnlockedLevel: 1,
-    selectedStartLevel: 1
+    selectedStartLevel: 1,
+    coinBank: 0,
+    unlockedCharacters: new Set(["bryan"])
   };
   const accessibilityState = {
     controlsStorageKey: "bbcd:controlScheme",
     speedStorageKey: "bbcd:gameSpeedScale",
     contrastStorageKey: "bbcd:highContrast",
-    audioStorageKey: "bbcd:audioEnabled",
+    musicVolumeStorageKey: "bbcd:musicVolume",
+    sfxVolumeStorageKey: "bbcd:sfxVolume",
     controlScheme: "right",
     speedScale: 1,
     highContrast: false,
-    audioEnabled: true
+    musicVolume: 0.7,
+    sfxVolume: 0.8
   };
   const audioState = {
     context: null,
     masterGain: null,
     musicGain: null,
     musicTimer: null,
-    musicStep: 0
+    musicStep: 0,
+    sfxGain: null
   };
   const achievements = [
     { score: 8, label: "Island Adventure Unlocked" },
@@ -417,7 +466,10 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   ];
   const mainMenuCopy = {
     title: "Bryan's Bonkers Cruise Dash",
-    subtitle: "Jump walls, collect pickups, and unlock destinations from Existing Cruise Deck to Miami."
+    subtitle: "Pick a runner, choose a start level, and hit Start Run. Open Settings for controls, speed, contrast, and audio."
+  };
+  const menuState = {
+    screen: "main"
   };
   const shareMeta = {
     ogImage: document.querySelector('meta[property="og:image"]'),
@@ -536,6 +588,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     cameraX: 0,
     speed: config.startSpeed,
     score: 0,
+    coins: 0,
     lives: config.maxLives,
     checkpoint: {
       score: 0,
@@ -558,7 +611,17 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       text: "",
       timer: 0
     },
+    milestonePopup: {
+      text: "",
+      timer: 0
+    },
+    stats: {
+      coinsCollected: 0,
+      combosTriggered: 0,
+      longestCombo: 0
+    },
     walls: [],
+    obstacles: [],
     collectibles: [],
     nextSpawnX: 0,
     slide: {
@@ -692,7 +755,35 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   function hydrateProgressionState() {
     progressionState.maxUnlockedLevel = readMaxUnlockedLevel();
     progressionState.selectedStartLevel = progressionState.maxUnlockedLevel;
+    try {
+      const storedBank = Number.parseInt(
+        window.localStorage.getItem(progressionState.bankStorageKey) || "0",
+        10
+      );
+      progressionState.coinBank = Number.isFinite(storedBank) ? Math.max(0, storedBank) : 0;
+      const storedUnlocks = JSON.parse(
+        window.localStorage.getItem(progressionState.unlockStorageKey) || "[]"
+      );
+      if (Array.isArray(storedUnlocks)) {
+        progressionState.unlockedCharacters = new Set(["bryan", ...storedUnlocks.filter(isValidCharacter)]);
+      }
+    } catch (_) {
+      progressionState.coinBank = 0;
+      progressionState.unlockedCharacters = new Set(["bryan"]);
+    }
     refreshStartLevelOptions();
+  }
+
+  function saveProgressionMeta() {
+    try {
+      window.localStorage.setItem(progressionState.bankStorageKey, String(progressionState.coinBank));
+      window.localStorage.setItem(
+        progressionState.unlockStorageKey,
+        JSON.stringify([...progressionState.unlockedCharacters])
+      );
+    } catch (_) {
+      // Ignore local storage persistence errors.
+    }
   }
 
   function getRunnerHitboxHeight() {
@@ -713,9 +804,17 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       }
       accessibilityState.highContrast =
         window.localStorage.getItem(accessibilityState.contrastStorageKey) === "1";
-      const storedAudio = window.localStorage.getItem(accessibilityState.audioStorageKey);
-      if (storedAudio === "0") {
-        accessibilityState.audioEnabled = false;
+      const storedMusic = Number.parseFloat(
+        window.localStorage.getItem(accessibilityState.musicVolumeStorageKey) || "0.7"
+      );
+      const storedSfx = Number.parseFloat(
+        window.localStorage.getItem(accessibilityState.sfxVolumeStorageKey) || "0.8"
+      );
+      if (Number.isFinite(storedMusic) && storedMusic >= 0 && storedMusic <= 1) {
+        accessibilityState.musicVolume = storedMusic;
+      }
+      if (Number.isFinite(storedSfx) && storedSfx >= 0 && storedSfx <= 1) {
+        accessibilityState.sfxVolume = storedSfx;
       }
     } catch (_) {
       // Ignore local storage errors and keep defaults.
@@ -737,8 +836,12 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
         accessibilityState.highContrast ? "1" : "0"
       );
       window.localStorage.setItem(
-        accessibilityState.audioStorageKey,
-        accessibilityState.audioEnabled ? "1" : "0"
+        accessibilityState.musicVolumeStorageKey,
+        String(accessibilityState.musicVolume)
+      );
+      window.localStorage.setItem(
+        accessibilityState.sfxVolumeStorageKey,
+        String(accessibilityState.sfxVolume)
       );
     } catch (_) {
       // Ignore local storage errors.
@@ -749,7 +852,8 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     controlSchemeSelect.value = accessibilityState.controlScheme;
     speedScaleSelect.value = String(accessibilityState.speedScale);
     contrastToggle.checked = accessibilityState.highContrast;
-    audioToggle.checked = accessibilityState.audioEnabled;
+    musicVolumeRange.value = String(Math.round(accessibilityState.musicVolume * 100));
+    sfxVolumeRange.value = String(Math.round(accessibilityState.sfxVolume * 100));
     document.body.classList.toggle("high-contrast", accessibilityState.highContrast);
   }
 
@@ -763,22 +867,26 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     }
     const context = new AudioCtx();
     const masterGain = context.createGain();
-    masterGain.gain.value = accessibilityState.audioEnabled ? 0.24 : 0;
+    masterGain.gain.value = 0.24;
     masterGain.connect(context.destination);
 
     const musicGain = context.createGain();
-    musicGain.gain.value = 0.18;
+    musicGain.gain.value = 0.18 * accessibilityState.musicVolume;
     musicGain.connect(masterGain);
+    const sfxGain = context.createGain();
+    sfxGain.gain.value = 0.24 * accessibilityState.sfxVolume;
+    sfxGain.connect(masterGain);
 
     audioState.context = context;
     audioState.masterGain = masterGain;
     audioState.musicGain = musicGain;
+    audioState.sfxGain = sfxGain;
     return context;
   }
 
   function playTone({ frequency, duration = 0.12, type = "sine", volume = 0.1, when = 0 }) {
     const context = ensureAudioContext();
-    if (!context || !accessibilityState.audioEnabled) {
+    if (!context || accessibilityState.sfxVolume <= 0) {
       return;
     }
     const startTime = context.currentTime + when;
@@ -790,7 +898,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     gainNode.gain.exponentialRampToValueAtTime(volume, startTime + 0.01);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
     oscillator.connect(gainNode);
-    gainNode.connect(audioState.masterGain);
+    gainNode.connect(audioState.sfxGain || audioState.masterGain);
     oscillator.start(startTime);
     oscillator.stop(startTime + duration + 0.02);
   }
@@ -834,7 +942,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
 
   function startMusicLoop() {
     const context = ensureAudioContext();
-    if (!context || audioState.musicTimer || !accessibilityState.audioEnabled) {
+    if (!context || audioState.musicTimer || accessibilityState.musicVolume <= 0) {
       return;
     }
     const progression = [
@@ -845,7 +953,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     ];
     audioState.musicStep = 0;
     audioState.musicTimer = window.setInterval(() => {
-      if (!accessibilityState.audioEnabled) {
+      if (accessibilityState.musicVolume <= 0) {
         return;
       }
       const chord = progression[audioState.musicStep % progression.length];
@@ -986,6 +1094,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   function restartStageForCurrentLevel() {
     world.cameraX = 0;
     world.walls.length = 0;
+    world.obstacles.length = 0;
     world.collectibles.length = 0;
     world.nextSpawnX = world.width * 0.9;
     world.slide.active = false;
@@ -1026,6 +1135,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     const startingIndex = normalizedId - 1;
     world.levelIndex = startingIndex;
     world.score = getLevelStartScore(startingIndex);
+    world.coins = 0;
     world.lives = config.maxLives;
     world.combo.count = 0;
     world.combo.timer = 0;
@@ -1039,6 +1149,11 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     world.invulnerableTime = 0;
     world.levelAnnouncement.text = "";
     world.levelAnnouncement.timer = 0;
+    world.milestonePopup.text = "";
+    world.milestonePopup.timer = 0;
+    world.stats.coinsCollected = 0;
+    world.stats.combosTriggered = 0;
+    world.stats.longestCombo = 0;
     updateLevelProgression({ announce: false });
     updateHud();
   }
@@ -1218,6 +1333,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     world.cameraX = 0;
     world.speed = config.startSpeed;
     world.score = 0;
+    world.coins = 0;
     world.lives = config.maxLives;
     world.checkpoint.score = 0;
     world.checkpoint.speed = config.startSpeed;
@@ -1234,7 +1350,13 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     world.lastTime = 0;
     world.levelAnnouncement.text = "";
     world.levelAnnouncement.timer = 0;
+    world.milestonePopup.text = "";
+    world.milestonePopup.timer = 0;
+    world.stats.coinsCollected = 0;
+    world.stats.combosTriggered = 0;
+    world.stats.longestCombo = 0;
     world.walls.length = 0;
+    world.obstacles.length = 0;
     world.collectibles.length = 0;
     world.nextSpawnX = world.width * 0.9;
     world.slide.active = false;
@@ -1398,8 +1520,26 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     } else {
       hideShareLink();
     }
+    if (!Number.isFinite(shareScore)) {
+      runStats.classList.add("hidden");
+      runStats.innerHTML = "";
+    }
     revealScreen(overlay);
     updateCharacterUi();
+  }
+
+  function setMenuScreen(screen, options = {}) {
+    const { focus = null } = options;
+    const nextScreen = screen === "settings" ? "settings" : "main";
+    menuState.screen = nextScreen;
+    mainMenuScreen?.classList.toggle("hidden", nextScreen !== "main");
+    settingsMenuScreen?.classList.toggle("hidden", nextScreen !== "settings");
+    settingsButton?.setAttribute("aria-expanded", String(nextScreen === "settings"));
+    if (focus === "settings" && nextScreen === "settings") {
+      settingsBackButton?.focus();
+    } else if (focus === "main" && nextScreen === "main") {
+      settingsButton?.focus();
+    }
   }
 
   function hideOverlay() {
@@ -1427,6 +1567,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     resetWorld();
     applyStartingLevel(getSelectedStartLevelId());
     world.mode = "ready";
+    setMenuScreen("main");
     showOverlay(mainMenuCopy.title, mainMenuCopy.subtitle, "Start Run", null, { layout: "start" });
   }
 
@@ -1481,6 +1622,18 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     const achievementText = earnedAchievements.length
       ? ` Achievements: ${earnedAchievements.join(", ")}.`
       : "";
+    progressionState.coinBank += world.coins;
+    saveProgressionMeta();
+    const achievementProgress = achievements
+      .map((entry) => `${entry.label}: ${Math.min(100, Math.round((world.score / entry.score) * 100))}%`)
+      .join(" | ");
+    runStats.innerHTML = `
+      <h3>Run Statistics</h3>
+      <p>Coins this run: ${world.coins} (Bank: ${progressionState.coinBank})</p>
+      <p>Combos triggered: ${world.stats.combosTriggered} · Longest streak: ${world.stats.longestCombo}</p>
+      <p>Achievement progress: ${achievementProgress}</p>
+    `;
+    runStats.classList.remove("hidden");
     world.mode = "gameOver";
     if (world.score >= achievements[0].score) {
       burstCelebration({ particleCount: 120, spread: 108, originY: 0.52 });
@@ -1610,9 +1763,10 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     if (world.mode !== "running" || !runner.onGround || runner.slideCooldown > 0) {
       return;
     }
+    const slideDuration = config.slideDuration * (getActivePreset().slideDurationMultiplier || 1);
     runner.isSliding = true;
-    runner.slideTimer = config.slideDuration;
-    runner.slideCooldown = config.slideCooldown + config.slideDuration;
+    runner.slideTimer = slideDuration;
+    runner.slideCooldown = config.slideCooldown + slideDuration;
   }
 
   function attemptJump() {
@@ -1698,6 +1852,40 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   function getWallHeight() {
     return Math.round((config.wallHeight - 14) + 20 * getDifficulty());
   }
+
+  function maybeSpawnExtraObstacle(x) {
+    if (Math.random() > 0.45) {
+      return;
+    }
+    const variantRoll = Math.random();
+    if (variantRoll < 0.34) {
+      world.obstacles.push({
+        type: "beachBall",
+        x: x + randomBetween(90, 180),
+        y: world.groundY - 34,
+        width: 34,
+        height: 34
+      });
+      return;
+    }
+    if (variantRoll < 0.67) {
+      world.obstacles.push({
+        type: "surfboard",
+        x: x + randomBetween(120, 220),
+        y: world.groundY - 30,
+        width: 88,
+        height: 30
+      });
+      return;
+    }
+    world.obstacles.push({
+      type: "lowBar",
+      x: x + randomBetween(140, 220),
+      y: world.groundY - 110,
+      width: 120,
+      height: 18
+    });
+  }
   function activateSlideObstacle() {
     const slideHeight = config.slideHeight;
     const slideAspect =
@@ -1767,6 +1955,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
           return;
         }
         world.combo.count += 1;
+        world.stats.longestCombo = Math.max(world.stats.longestCombo, world.combo.count);
         playCollectSfx();
         world.combo.timer = config.comboWindowSeconds;
         const comboTier = Math.floor(world.combo.count / config.comboStep);
@@ -1776,12 +1965,19 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
         );
         const points = Math.max(1, Math.round(world.combo.multiplier));
         world.score += points;
+        world.coins += 1;
+        world.stats.coinsCollected += 1;
         world.speed = Math.min(config.maxSpeed, world.speed + getProgressiveSpeedGain());
+        if (world.score > 0 && world.score % config.checkpointInterval === 0) {
+          showMilestonePopup(`Checkpoint reached: ${world.score} points!`);
+        }
         if (
           comboTier > 0 &&
           world.combo.count % (config.comboStep * config.speedBoostEveryCombos) === 0
         ) {
+          world.stats.combosTriggered += 1;
           world.speedBoostTimer = config.speedBoostDuration;
+          showMilestonePopup(`Combo chain x${world.combo.multiplier.toFixed(1)}!`);
         }
         updateLevelProgression();
         updateCheckpoint();
@@ -1878,6 +2074,7 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
         taken: false
       });
     }
+    maybeSpawnExtraObstacle(x);
     const gapRange = getSpawnGapRange();
     world.nextSpawnX = x + width + randomBetween(gapRange.min, gapRange.max);
   }
@@ -1892,9 +2089,36 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
   function pruneWorld() {
     const cullX = world.cameraX - 220;
     world.walls = world.walls.filter((wall) => wall.x + wall.width > cullX);
+    world.obstacles = world.obstacles.filter((obstacle) => obstacle.x + obstacle.width > cullX);
     world.collectibles = world.collectibles.filter(
       (item) => !item.taken && item.x > cullX
     );
+  }
+
+  function updateObstacleHits(runnerRect) {
+    if (world.invulnerableTime > 0) {
+      return false;
+    }
+    for (const obstacle of world.obstacles) {
+      const rect = {
+        left: obstacle.x - world.cameraX,
+        top: obstacle.y,
+        width: obstacle.width,
+        height: obstacle.height
+      };
+      if (obstacle.type === "lowBar") {
+        if (runner.isSliding) {
+          continue;
+        }
+        if (runner.y + runner.height < obstacle.y + config.lowBarClearance) {
+          continue;
+        }
+      }
+      if (hasAabbCollision(runnerRect, rect)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function updateHud() {
@@ -1909,9 +2133,15 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       pointsToNext === null ? "Final destination reached" : `${pointsToNext} pts to L${level.id + 1}`;
     livesValue.textContent = String(Math.max(0, world.lives));
     comboValue.textContent = `x${world.combo.multiplier.toFixed(1)}`;
+    coinValue.textContent = String(world.coins);
     const speedBoostText = world.speedBoostTimer > 0 ? " Speed boost active." : "";
-    const hudNarration = `Score ${world.score}. Level ${level.id}. Lives ${world.lives}. Combo multiplier ${world.combo.multiplier.toFixed(1)}.${speedBoostText}`;
+    const hudNarration = `Score ${world.score}. Coins ${world.coins}. Level ${level.id}. Lives ${world.lives}. Combo multiplier ${world.combo.multiplier.toFixed(1)}.${speedBoostText}`;
     document.querySelector(".hud")?.setAttribute("aria-label", hudNarration);
+  }
+
+  function showMilestonePopup(text) {
+    world.milestonePopup.text = text;
+    world.milestonePopup.timer = config.milestonePopupDuration;
   }
 
   function update(dt) {
@@ -1932,6 +2162,9 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     }
     if (world.invulnerableTime > 0) {
       world.invulnerableTime = Math.max(0, world.invulnerableTime - scaledDt);
+    }
+    if (world.milestonePopup.timer > 0) {
+      world.milestonePopup.timer = Math.max(0, world.milestonePopup.timer - scaledDt);
     }
 
     if (runner.jumpBuffer > 0) {
@@ -2005,6 +2238,13 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
         world.lives -= 1;
         restoreCheckpointAfterHit();
       }
+      return;
+    }
+    const hitObstacle = updateObstacleHits(runnerRect);
+    if (hitObstacle) {
+      playHitSfx();
+      world.lives -= 1;
+      restoreCheckpointAfterHit();
       return;
     }
     ensureGenerated();
@@ -2279,6 +2519,37 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     );
   }
 
+  function drawObstacles() {
+    for (const obstacle of world.obstacles) {
+      const x = obstacle.x - world.cameraX;
+      if (x + obstacle.width < -60 || x > world.width + 60) {
+        continue;
+      }
+      if (obstacle.type === "beachBall") {
+        ctx.fillStyle = "#ff9a42";
+        ctx.beginPath();
+        ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff6d5";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.32, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (obstacle.type === "surfboard") {
+        ctx.fillStyle = "#ef5f83";
+        fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 14);
+        ctx.fillStyle = "#ffe4b4";
+        ctx.fillRect(x + 14, obstacle.y + 10, obstacle.width - 28, 4);
+      } else if (obstacle.type === "lowBar") {
+        ctx.fillStyle = "#6fd8ff";
+        fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 8);
+        ctx.fillStyle = "rgba(111, 216, 255, 0.35)";
+        ctx.fillRect(x + 8, obstacle.y + obstacle.height, 5, 48);
+        ctx.fillRect(x + obstacle.width - 13, obstacle.y + obstacle.height, 5, 48);
+      }
+    }
+  }
+
   function drawCollectibles() {
     const preset = getActivePreset();
     const activeAssets = getActiveAssets();
@@ -2399,6 +2670,20 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     }
 
     ctx.restore();
+  }
+
+  function drawLivesNearRunner() {
+    const x = world.width * config.runnerScreenRatio + runner.width * 0.5;
+    const y = runner.y - 22;
+    const lives = Math.max(0, world.lives);
+    for (let i = 0; i < config.maxLives; i += 1) {
+      ctx.globalAlpha = i < lives ? 1 : 0.24;
+      ctx.font = "18px \"Segoe UI Emoji\", sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("❤️", x + i * 20 - 20, y);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawRescueDoctor() {
@@ -2544,6 +2829,41 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     ctx.restore();
   }
 
+  function drawMilestonePopup() {
+    if (world.milestonePopup.timer <= 0 || !world.milestonePopup.text) {
+      return;
+    }
+    const alpha = Math.min(1, world.milestonePopup.timer / config.milestonePopupDuration);
+    const y = world.height * 0.24 - (1 - alpha) * 20;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "rgba(12, 18, 30, 0.92)";
+    fillRoundedRect(world.width * 0.2, y, world.width * 0.6, 46, 10);
+    ctx.fillStyle = "#ffe495";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `26px ${uiMonoFont}`;
+    ctx.fillText(world.milestonePopup.text, world.width * 0.5, y + 24);
+    ctx.restore();
+  }
+
+  function drawScenerySection() {
+    const sections = ["Casino Deck", "Pool Area", "Nighttime Sailing"];
+    const sectionIndex = Math.floor(world.levelElapsed / 12) % sections.length;
+    const label = sections[sectionIndex];
+    if (label === "Nighttime Sailing") {
+      ctx.fillStyle = "rgba(9, 18, 48, 0.18)";
+      ctx.fillRect(0, 0, world.width, world.height);
+    }
+    ctx.fillStyle = "rgba(8, 18, 28, 0.56)";
+    fillRoundedRect(12, world.height - 54, 210, 36, 8);
+    ctx.fillStyle = "#d8f4ff";
+    ctx.font = `22px ${uiMonoFont}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, 24, world.height - 36);
+  }
+
   function render() {
     ctx.clearRect(0, 0, world.width, world.height);
 
@@ -2563,10 +2883,14 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     drawGround();
     drawWalls();
     drawSlideObstacle();
+    drawObstacles();
     drawCollectibles();
+    drawScenerySection();
     drawRunner();
+    drawLivesNearRunner();
     drawRescueDoctor();
     drawLevelAnnouncement();
+    drawMilestonePopup();
   }
 
   function onFrame(timestamp) {
@@ -2681,8 +3005,15 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
     });
     window.addEventListener("resize", resizeCanvas);
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && releaseState.isOpen) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (releaseState.isOpen) {
         closeReleaseNotes();
+        return;
+      }
+      if (world.mode === "ready" && menuState.screen === "settings") {
+        setMenuScreen("main", { focus: "main" });
       }
     });
     helpButton.addEventListener("click", () => {
@@ -2693,10 +3024,27 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
         triggerEl: helpButton
       });
     });
+    settingsButton?.addEventListener("click", () => {
+      setMenuScreen("settings", { focus: "settings" });
+    });
+    settingsBackButton?.addEventListener("click", () => {
+      setMenuScreen("main", { focus: "main" });
+    });
     notesCloseButton.addEventListener("click", closeReleaseNotes);
     characterSelect.addEventListener("change", (event) => {
       const selected = String(event.target.value || "").toLowerCase();
       if (!isValidCharacter(selected)) {
+        return;
+      }
+      const preset = characterPresets[selected];
+      const isUnlocked = progressionState.unlockedCharacters.has(selected);
+      if (!isUnlocked && progressionState.coinBank >= (preset.unlockCost || 0)) {
+        progressionState.coinBank -= preset.unlockCost || 0;
+        progressionState.unlockedCharacters.add(selected);
+        saveProgressionMeta();
+      }
+      if (!progressionState.unlockedCharacters.has(selected)) {
+        updateCharacterUi();
         return;
       }
       currentCharacter = selected;
@@ -2727,25 +3075,50 @@ import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
       applyAccessibilityUi();
       saveAccessibilityState();
     });
-    audioToggle.addEventListener("change", (event) => {
-      accessibilityState.audioEnabled = Boolean(event.target.checked);
-      const context = ensureAudioContext();
-      if (context && audioState.masterGain) {
-        audioState.masterGain.gain.value = accessibilityState.audioEnabled ? 0.24 : 0;
+    musicVolumeRange.addEventListener("input", (event) => {
+      accessibilityState.musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+      ensureAudioContext();
+      if (audioState.musicGain) {
+        audioState.musicGain.gain.value = 0.18 * accessibilityState.musicVolume;
       }
-      if (accessibilityState.audioEnabled && world.mode === "running") {
+      if (world.mode === "running" && accessibilityState.musicVolume > 0) {
         startMusicLoop();
-      } else if (!accessibilityState.audioEnabled) {
+      } else if (accessibilityState.musicVolume <= 0) {
         stopMusicLoop();
+      }
+      saveAccessibilityState();
+    });
+    sfxVolumeRange.addEventListener("input", (event) => {
+      accessibilityState.sfxVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+      ensureAudioContext();
+      if (audioState.sfxGain) {
+        audioState.sfxGain.gain.value = 0.24 * accessibilityState.sfxVolume;
       }
       saveAccessibilityState();
     });
   }
 
   function updateCharacterUi() {
+    if (!progressionState.unlockedCharacters.has(currentCharacter)) {
+      currentCharacter = "bryan";
+    }
     const preset = getActivePreset();
+    Array.from(characterSelect.options).forEach((option) => {
+      const key = String(option.value || "").toLowerCase();
+      const optionPreset = characterPresets[key];
+      if (!optionPreset) {
+        return;
+      }
+      const unlocked = progressionState.unlockedCharacters.has(key);
+      const lockSuffix = unlocked ? "" : ` (Locked: ${optionPreset.unlockCost})`;
+      option.textContent = `${optionPreset.name} + ${optionPreset.collectibleName}${lockSuffix}`;
+    });
+    const isUnlocked = progressionState.unlockedCharacters.has(currentCharacter);
+    const lockStatus = isUnlocked
+      ? "Unlocked."
+      : `Locked. ${preset.unlockCost} bank coins needed.`;
     characterSelect.value = currentCharacter;
-    characterDetails.textContent = `${preset.name} collects ${preset.collectibleName}. ${preset.details}`;
+    characterDetails.textContent = `${preset.name}: ${preset.abilityLabel}. ${preset.abilityDetail} ${lockStatus} Bank: ${progressionState.coinBank} coins.`;
     updateShareImageMeta();
     refreshShareLinkForCharacter();
     syncCharacterInLocation();
