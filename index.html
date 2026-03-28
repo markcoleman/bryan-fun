@@ -51,6 +51,14 @@
         <span class="hud-label">Next</span>
         <span id="nextLevelValue" class="hud-value">8 pts to L2</span>
       </div>
+      <div class="hud-item">
+        <span class="hud-label">Lives</span>
+        <span id="livesValue" class="hud-value">3</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Combo</span>
+        <span id="comboValue" class="hud-value">x1.0</span>
+      </div>
     </section>
     <section class="overlay" id="overlay">
       <div class="overlay-card">
@@ -76,6 +84,27 @@
                 <option value="1">Level 1 - Existing Cruise Deck</option>
               </select>
               <p id="startLevelDetails" class="start-level-details"></p>
+            </div>
+            <div class="accessibility-options">
+              <label for="controlSchemeSelect">Controls</label>
+              <select id="controlSchemeSelect">
+                <option value="right">Space / W / ↑ / ↓</option>
+                <option value="left">Space / W / ↑ / ←</option>
+              </select>
+              <label for="speedScaleSelect">Game Speed</label>
+              <select id="speedScaleSelect">
+                <option value="0.85">Relaxed (85%)</option>
+                <option value="1" selected>Normal (100%)</option>
+                <option value="1.15">Fast (115%)</option>
+              </select>
+              <label class="checkbox-row" for="contrastToggle">
+                <input id="contrastToggle" type="checkbox">
+                High Contrast HUD
+              </label>
+              <label class="checkbox-row" for="audioToggle">
+                <input id="audioToggle" type="checkbox" checked>
+                Audio Enabled
+              </label>
             </div>
             <button
               id="helpButton"
