@@ -50,14 +50,22 @@ Open [index.html](/Users/markcoleman/Development/github/bryan-fun/index.html) in
   - Installs dependencies from the committed lock file (`npm ci`).
   - Checks JavaScript syntax with `node --check`.
   - Runs Node.js unit tests with coverage via `npm test`.
+  - Runs `npm audit` with a high-severity threshold.
 - Deployment workflow: [deploy-pages.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/deploy-pages.yml)
   - Publishes the static site to GitHub Pages on pushes to `main`.
+- Performance workflow: [performance.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/performance.yml)
+  - Runs Lighthouse CI on pull requests and manual dispatches.
+  - Publishes Lighthouse artifacts for UX/performance visibility.
+- Dependabot: [.github/dependabot.yml](/Users/markcoleman/Development/github/bryan-fun/.github/dependabot.yml)
+  - Weekly updates for devcontainer config, GitHub Actions, and npm dependencies.
+  - Groups test/quality tooling updates to reduce PR noise.
 
 
 ## Performance and delivery optimizations
 
 - Non-critical large textures are now lazy-loaded at runtime to reduce initial page payload and improve first render time.
 - Shared gameplay math and version helpers live in `src/game-logic.js` to keep core runtime logic cleaner and easier to maintain/test.
+- Uses the open-source `canvas-confetti` package for level-up and achievement celebrations.
 
 ## Testing
 
