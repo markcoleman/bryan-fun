@@ -50,7 +50,7 @@ import {
     collectibleLiftMin: 118,
     collectibleLiftMax: 144,
     collectiblePickupPadding: 24,
-    bonusSpawnChance: 0.2,
+    bonusSpawnChance: 0.1,
     slideTriggerScore: 14,
     slideMinSpeed: 250,
     slideHeight: 54,
@@ -1360,6 +1360,11 @@ import {
     return hasAabbCollision(runnerRect, slideRect);
   }
 
+  function isCasinoBonusLevel() {
+    const levelId = getCurrentLevel().id;
+    return levelId === 1 || levelId === 4;
+  }
+
   function collectItems(runnerCenterX, runnerCenterY) {
     for (const item of world.collectibles) {
       if (item.taken) {
@@ -1456,7 +1461,7 @@ import {
       label: preset.collectibleName,
       taken: false
     });
-    if (Math.random() < config.bonusSpawnChance) {
+    if (isCasinoBonusLevel() && Math.random() < config.bonusSpawnChance) {
       world.collectibles.push({
         x: x + width * 0.5 - 24,
         y:
