@@ -3,6 +3,7 @@ import {
   getProgressiveSpeedGain as calculateProgressiveSpeedGain,
   normalizeLevelId as clampLevelId
 } from "./game-logic.js";
+import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
 
 "use strict";
 
@@ -264,8 +265,18 @@ import {
   let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "2.1.0",
+    currentVersion: "2.2.0",
     notes: [
+      {
+        version: "2.2.0",
+        date: "2026-03-28",
+        title: "Level-up celebration polish",
+        bullets: [
+          "Integrated the open-source canvas-confetti package for milestone celebrations.",
+          "Added confetti bursts when unlocking a new level.",
+          "Added a larger game-over celebration when at least one achievement is earned."
+        ]
+      },
       {
         version: "2.1.0",
         date: "2026-03-28",
@@ -803,6 +814,24 @@ import {
     playTone({ frequency: 170, duration: 0.16, type: "sawtooth", volume: 0.09 });
   }
 
+  function burstCelebration({
+    particleCount = 70,
+    spread = 80,
+    originY = 0.65
+  } = {}) {
+    if (typeof confetti !== "function") {
+      return;
+    }
+    confetti({
+      particleCount,
+      spread,
+      startVelocity: 38,
+      scalar: 0.95,
+      ticks: 220,
+      origin: { y: originY }
+    });
+  }
+
   function startMusicLoop() {
     const context = ensureAudioContext();
     if (!context || audioState.musicTimer || !accessibilityState.audioEnabled) {
@@ -951,6 +980,7 @@ import {
     world.levelAnnouncement.text = `Level ${level.id}: ${level.name}`;
     world.levelAnnouncement.timer = config.levelAnnouncementDuration;
     playLevelUpSfx();
+    burstCelebration({ particleCount: 92, spread: 92, originY: 0.58 });
   }
 
   function restartStageForCurrentLevel() {
@@ -1452,6 +1482,9 @@ import {
       ? ` Achievements: ${earnedAchievements.join(", ")}.`
       : "";
     world.mode = "gameOver";
+    if (world.score >= achievements[0].score) {
+      burstCelebration({ particleCount: 120, spread: 108, originY: 0.52 });
+    }
     showOverlay(
       "Run Over",
       `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. ${nextDestinationHint}${achievementText}`,
