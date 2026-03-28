@@ -3,6 +3,7 @@ import {
   getProgressiveSpeedGain as calculateProgressiveSpeedGain,
   normalizeLevelId as clampLevelId
 } from "./game-logic.js";
+import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
 
 "use strict";
 
@@ -18,7 +19,14 @@ import {
   const speedValue = document.getElementById("speedValue");
   const levelValue = document.getElementById("levelValue");
   const nextLevelValue = document.getElementById("nextLevelValue");
+  const livesValue = document.getElementById("livesValue");
+  const comboValue = document.getElementById("comboValue");
+  const coinValue = document.getElementById("coinValue");
+  const settingsButton = document.getElementById("settingsButton");
+  const settingsBackButton = document.getElementById("settingsBackButton");
   const helpButton = document.getElementById("helpButton");
+  const mainMenuScreen = document.getElementById("mainMenuScreen");
+  const settingsMenuScreen = document.getElementById("settingsMenuScreen");
   const notesDialog = document.getElementById("notesDialog");
   const notesIntro = document.getElementById("notesIntro");
   const notesScrollRegion = document.getElementById("notesScrollRegion");
@@ -27,6 +35,12 @@ import {
   const characterDetails = document.getElementById("characterDetails");
   const startLevelSelect = document.getElementById("startLevelSelect");
   const startLevelDetails = document.getElementById("startLevelDetails");
+  const controlSchemeSelect = document.getElementById("controlSchemeSelect");
+  const speedScaleSelect = document.getElementById("speedScaleSelect");
+  const contrastToggle = document.getElementById("contrastToggle");
+  const musicVolumeRange = document.getElementById("musicVolumeRange");
+  const sfxVolumeRange = document.getElementById("sfxVolumeRange");
+  const runStats = document.getElementById("runStats");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
   const uiPixelFont = "\"Press Start 2P\", \"Courier New\", monospace";
@@ -61,7 +75,22 @@ import {
     rescueDoctorSpeed: 520,
     rescueReviveHold: 0.55,
     rescuePostInvulnerability: 1.4,
-    levelAnnouncementDuration: 2.35
+    levelAnnouncementDuration: 2.35,
+    maxLives: 3,
+    checkpointInterval: 5,
+    comboWindowSeconds: 2.6,
+    comboStep: 3,
+    maxComboMultiplier: 3,
+    slideDuration: 0.58,
+    slideCooldown: 0.34,
+    shortHopCutoffVelocity: 280,
+    shortHopReleaseDampen: 0.5,
+    speedBoostDuration: 2.4,
+    speedBoostEveryCombos: 2,
+    speedBoostAmount: 36,
+    screenTransitionMs: 320,
+    milestonePopupDuration: 1.35,
+    lowBarClearance: 42
   };
   const imagePath = (fileName) => `assets/images/${fileName}`;
   const levelBackgroundSources = [
@@ -182,6 +211,8 @@ import {
       name: "Bryan",
       collectibleName: "Pill",
       details: "Balanced speed and control. Uses existing Bryan + pill art.",
+      abilityLabel: "Steady Runner",
+      abilityDetail: "Balanced jump and slide timing for reliable runs.",
       runnerIdleSrc: imagePath("characters/bryan.png"),
       runnerStepSrc: imagePath("characters/bryan2.png"),
       runnerJumpSrc: imagePath("characters/bryan-jump.png"),
@@ -189,6 +220,8 @@ import {
       runnerScale: 1,
       speedGainMultiplier: 1,
       jumpVelocityMultiplier: 1,
+      slideDurationMultiplier: 1,
+      unlockCost: 0,
       fallbackColor: "#f26a4b",
       collectibleGlyph: "💊",
       collectibleColor: "#ffd95e"
@@ -197,6 +230,8 @@ import {
       name: "Barbra",
       collectibleName: "Morning Beer",
       details: "Extra zip after pickups, with a slightly lower jump arc.",
+      abilityLabel: "Long Slide",
+      abilityDetail: "Slides 25% longer for tighter low-obstacle clears.",
       runnerIdleSrc: imagePath("characters/barbra.png"),
       runnerStepSrc: imagePath("characters/barbra2.png"),
       runnerJumpSrc: imagePath("characters/barbra-jump.png"),
@@ -205,6 +240,8 @@ import {
       runnerScale: 1.5,
       speedGainMultiplier: 1.08,
       jumpVelocityMultiplier: 0.96,
+      slideDurationMultiplier: 1.25,
+      unlockCost: 80,
       fallbackColor: "#f48cb4",
       collectibleGlyph: "🍺",
       collectibleColor: "#ffc857"
@@ -213,6 +250,8 @@ import {
       name: "Kyle",
       collectibleName: "Champagne",
       details: "Higher jumps and smoother landings with moderate acceleration.",
+      abilityLabel: "Skybound",
+      abilityDetail: "Higher jump arc makes long obstacle chains easier.",
       runnerIdleSrc: imagePath("characters/kyle.png"),
       runnerStepSrc: imagePath("characters/kyle2.png"),
       runnerJumpSrc: imagePath("characters/kyle-jump.png"),
@@ -220,6 +259,8 @@ import {
       runnerScale: 1.5,
       speedGainMultiplier: 0.94,
       jumpVelocityMultiplier: 1.05,
+      slideDurationMultiplier: 1,
+      unlockCost: 130,
       fallbackColor: "#7da2ff",
       collectibleGlyph: "🍾",
       collectibleColor: "#cde88f"
@@ -245,8 +286,62 @@ import {
   let currentCharacter = getCharacterFromUrl() || "bryan";
   const releaseState = {
     storageKey: "bbcd:lastSeenVersion",
-    currentVersion: "1.9.0",
+    currentVersion: "2.4.0",
     notes: [
+      {
+        version: "2.4.0",
+        date: "2026-03-28",
+        title: "Main menu settings split + scrolling improvements",
+        bullets: [
+          "Split start flow into dedicated Main Menu and Settings screens for easier navigation.",
+          "Added a direct Settings button from the main menu with one-tap return back.",
+          "Improved menu overflow behavior so full menu content remains reachable on smaller displays."
+        ]
+      },
+      {
+        version: "2.3.0",
+        date: "2026-03-28",
+        title: "Run feedback + progression expansion",
+        bullets: [
+          "Added near-runner heart lives, coin counter, and milestone combo/checkpoint popups.",
+          "Added a persistent coin bank with unlockable runners and gear in the setup menu.",
+          "Added separate music and SFX sliders plus end-of-run stats and achievement progress.",
+          "Added new obstacle types (beach balls, surfboards, low bars) and rotating scenery sections."
+        ]
+      },
+      {
+        version: "2.2.0",
+        date: "2026-03-28",
+        title: "Level-up celebration polish",
+        bullets: [
+          "Integrated the open-source canvas-confetti package for milestone celebrations.",
+          "Added confetti bursts when unlocking a new level.",
+          "Added a larger game-over celebration when at least one achievement is earned."
+        ]
+      },
+      {
+        version: "2.1.0",
+        date: "2026-03-28",
+        title: "Audio feedback + animated screen transitions",
+        bullets: [
+          "Added cruise-style background music with an in-menu audio toggle.",
+          "Added sound effects for jumps, pickups, level ups, and collisions.",
+          "Added smoother fade/slide transitions between splash, menu, and run states.",
+          "Enhanced the splash 'Press Start' presentation with subtle motion."
+        ]
+      },
+      {
+        version: "2.0.0",
+        date: "2026-03-28",
+        title: "Difficulty smoothing, combos, and accessibility",
+        bullets: [
+          "Added three-life runs with score checkpoints every five points so a single collision no longer ends a run.",
+          "Introduced variable jump height, mid-air double-jump, and a manual slide action for tighter control.",
+          "Added combo scoring multipliers plus temporary drink speed boosts for streak play.",
+          "Added quick-restart game-over flow with earned milestone achievements displayed.",
+          "Added control remap, game-speed selection, and high-contrast HUD mode."
+        ]
+      },
       {
         version: "1.9.0",
         date: "2026-03-27",
@@ -337,12 +432,44 @@ import {
   };
   const progressionState = {
     storageKey: "bbcd:maxUnlockedLevel",
+    bankStorageKey: "bbcd:coinBank",
+    unlockStorageKey: "bbcd:unlockedCharacters",
     maxUnlockedLevel: 1,
-    selectedStartLevel: 1
+    selectedStartLevel: 1,
+    coinBank: 0,
+    unlockedCharacters: new Set(["bryan"])
   };
+  const accessibilityState = {
+    controlsStorageKey: "bbcd:controlScheme",
+    speedStorageKey: "bbcd:gameSpeedScale",
+    contrastStorageKey: "bbcd:highContrast",
+    musicVolumeStorageKey: "bbcd:musicVolume",
+    sfxVolumeStorageKey: "bbcd:sfxVolume",
+    controlScheme: "right",
+    speedScale: 1,
+    highContrast: false,
+    musicVolume: 0.7,
+    sfxVolume: 0.8
+  };
+  const audioState = {
+    context: null,
+    masterGain: null,
+    musicGain: null,
+    musicTimer: null,
+    musicStep: 0,
+    sfxGain: null
+  };
+  const achievements = [
+    { score: 8, label: "Island Adventure Unlocked" },
+    { score: 18, label: "Adults-Only Pool Veteran" },
+    { score: 31, label: "Bahamas Blazer" }
+  ];
   const mainMenuCopy = {
     title: "Bryan's Bonkers Cruise Dash",
-    subtitle: "Jump walls, collect pickups, and unlock destinations from Existing Cruise Deck to Miami."
+    subtitle: "Pick a runner, choose a start level, and hit Start Run. Open Settings for controls, speed, contrast, and audio."
+  };
+  const menuState = {
+    screen: "main"
   };
   const shareMeta = {
     ogImage: document.querySelector('meta[property="og:image"]'),
@@ -461,6 +588,20 @@ import {
     cameraX: 0,
     speed: config.startSpeed,
     score: 0,
+    coins: 0,
+    lives: config.maxLives,
+    checkpoint: {
+      score: 0,
+      speed: config.startSpeed,
+      levelIndex: 0,
+      nextAt: config.checkpointInterval
+    },
+    combo: {
+      count: 0,
+      timer: 0,
+      multiplier: 1
+    },
+    speedBoostTimer: 0,
     levelIndex: 0,
     pendingLevelRestart: false,
     lastTime: 0,
@@ -470,7 +611,17 @@ import {
       text: "",
       timer: 0
     },
+    milestonePopup: {
+      text: "",
+      timer: 0
+    },
+    stats: {
+      coinsCollected: 0,
+      combosTriggered: 0,
+      longestCombo: 0
+    },
     walls: [],
+    obstacles: [],
     collectibles: [],
     nextSpawnX: 0,
     slide: {
@@ -502,9 +653,15 @@ import {
   const runner = {
     width: 52,
     height: 64,
+    slideHeight: 40,
     y: 0,
     vy: 0,
     onGround: true,
+    jumpHeld: false,
+    canDoubleJump: true,
+    isSliding: false,
+    slideTimer: 0,
+    slideCooldown: 0,
     coyoteTime: 0,
     jumpBuffer: 0,
     tilt: 0
@@ -598,7 +755,258 @@ import {
   function hydrateProgressionState() {
     progressionState.maxUnlockedLevel = readMaxUnlockedLevel();
     progressionState.selectedStartLevel = progressionState.maxUnlockedLevel;
+    try {
+      const storedBank = Number.parseInt(
+        window.localStorage.getItem(progressionState.bankStorageKey) || "0",
+        10
+      );
+      progressionState.coinBank = Number.isFinite(storedBank) ? Math.max(0, storedBank) : 0;
+      const storedUnlocks = JSON.parse(
+        window.localStorage.getItem(progressionState.unlockStorageKey) || "[]"
+      );
+      if (Array.isArray(storedUnlocks)) {
+        progressionState.unlockedCharacters = new Set(["bryan", ...storedUnlocks.filter(isValidCharacter)]);
+      }
+    } catch (_) {
+      progressionState.coinBank = 0;
+      progressionState.unlockedCharacters = new Set(["bryan"]);
+    }
     refreshStartLevelOptions();
+  }
+
+  function saveProgressionMeta() {
+    try {
+      window.localStorage.setItem(progressionState.bankStorageKey, String(progressionState.coinBank));
+      window.localStorage.setItem(
+        progressionState.unlockStorageKey,
+        JSON.stringify([...progressionState.unlockedCharacters])
+      );
+    } catch (_) {
+      // Ignore local storage persistence errors.
+    }
+  }
+
+  function getRunnerHitboxHeight() {
+    return runner.isSliding ? runner.slideHeight : runner.height;
+  }
+
+  function readAccessibilityState() {
+    try {
+      const storedScheme = window.localStorage.getItem(accessibilityState.controlsStorageKey);
+      if (storedScheme === "left" || storedScheme === "right") {
+        accessibilityState.controlScheme = storedScheme;
+      }
+      const storedSpeed = Number.parseFloat(
+        window.localStorage.getItem(accessibilityState.speedStorageKey) || "1"
+      );
+      if (Number.isFinite(storedSpeed) && storedSpeed >= 0.7 && storedSpeed <= 1.3) {
+        accessibilityState.speedScale = storedSpeed;
+      }
+      accessibilityState.highContrast =
+        window.localStorage.getItem(accessibilityState.contrastStorageKey) === "1";
+      const storedMusic = Number.parseFloat(
+        window.localStorage.getItem(accessibilityState.musicVolumeStorageKey) || "0.7"
+      );
+      const storedSfx = Number.parseFloat(
+        window.localStorage.getItem(accessibilityState.sfxVolumeStorageKey) || "0.8"
+      );
+      if (Number.isFinite(storedMusic) && storedMusic >= 0 && storedMusic <= 1) {
+        accessibilityState.musicVolume = storedMusic;
+      }
+      if (Number.isFinite(storedSfx) && storedSfx >= 0 && storedSfx <= 1) {
+        accessibilityState.sfxVolume = storedSfx;
+      }
+    } catch (_) {
+      // Ignore local storage errors and keep defaults.
+    }
+  }
+
+  function saveAccessibilityState() {
+    try {
+      window.localStorage.setItem(
+        accessibilityState.controlsStorageKey,
+        accessibilityState.controlScheme
+      );
+      window.localStorage.setItem(
+        accessibilityState.speedStorageKey,
+        String(accessibilityState.speedScale)
+      );
+      window.localStorage.setItem(
+        accessibilityState.contrastStorageKey,
+        accessibilityState.highContrast ? "1" : "0"
+      );
+      window.localStorage.setItem(
+        accessibilityState.musicVolumeStorageKey,
+        String(accessibilityState.musicVolume)
+      );
+      window.localStorage.setItem(
+        accessibilityState.sfxVolumeStorageKey,
+        String(accessibilityState.sfxVolume)
+      );
+    } catch (_) {
+      // Ignore local storage errors.
+    }
+  }
+
+  function applyAccessibilityUi() {
+    controlSchemeSelect.value = accessibilityState.controlScheme;
+    speedScaleSelect.value = String(accessibilityState.speedScale);
+    contrastToggle.checked = accessibilityState.highContrast;
+    musicVolumeRange.value = String(Math.round(accessibilityState.musicVolume * 100));
+    sfxVolumeRange.value = String(Math.round(accessibilityState.sfxVolume * 100));
+    document.body.classList.toggle("high-contrast", accessibilityState.highContrast);
+  }
+
+  function ensureAudioContext() {
+    if (audioState.context) {
+      return audioState.context;
+    }
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) {
+      return null;
+    }
+    const context = new AudioCtx();
+    const masterGain = context.createGain();
+    masterGain.gain.value = 0.24;
+    masterGain.connect(context.destination);
+
+    const musicGain = context.createGain();
+    musicGain.gain.value = 0.18 * accessibilityState.musicVolume;
+    musicGain.connect(masterGain);
+    const sfxGain = context.createGain();
+    sfxGain.gain.value = 0.24 * accessibilityState.sfxVolume;
+    sfxGain.connect(masterGain);
+
+    audioState.context = context;
+    audioState.masterGain = masterGain;
+    audioState.musicGain = musicGain;
+    audioState.sfxGain = sfxGain;
+    return context;
+  }
+
+  function playTone({ frequency, duration = 0.12, type = "sine", volume = 0.1, when = 0 }) {
+    const context = ensureAudioContext();
+    if (!context || accessibilityState.sfxVolume <= 0) {
+      return;
+    }
+    const startTime = context.currentTime + when;
+    const oscillator = context.createOscillator();
+    const gainNode = context.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    gainNode.gain.setValueAtTime(0.0001, startTime);
+    gainNode.gain.exponentialRampToValueAtTime(volume, startTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioState.sfxGain || audioState.masterGain);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration + 0.02);
+  }
+
+  function playJumpSfx() {
+    playTone({ frequency: 480, duration: 0.1, type: "triangle", volume: 0.08 });
+  }
+
+  function playCollectSfx() {
+    playTone({ frequency: 740, duration: 0.08, type: "sine", volume: 0.06 });
+    playTone({ frequency: 980, duration: 0.11, type: "sine", volume: 0.05, when: 0.03 });
+  }
+
+  function playLevelUpSfx() {
+    playTone({ frequency: 520, duration: 0.1, type: "triangle", volume: 0.08 });
+    playTone({ frequency: 660, duration: 0.12, type: "triangle", volume: 0.07, when: 0.06 });
+    playTone({ frequency: 880, duration: 0.14, type: "triangle", volume: 0.06, when: 0.12 });
+  }
+
+  function playHitSfx() {
+    playTone({ frequency: 170, duration: 0.16, type: "sawtooth", volume: 0.09 });
+  }
+
+  function burstCelebration({
+    particleCount = 70,
+    spread = 80,
+    originY = 0.65
+  } = {}) {
+    if (typeof confetti !== "function") {
+      return;
+    }
+    confetti({
+      particleCount,
+      spread,
+      startVelocity: 38,
+      scalar: 0.95,
+      ticks: 220,
+      origin: { y: originY }
+    });
+  }
+
+  function startMusicLoop() {
+    const context = ensureAudioContext();
+    if (!context || audioState.musicTimer || accessibilityState.musicVolume <= 0) {
+      return;
+    }
+    const progression = [
+      [220, 277, 330],
+      [196, 247, 294],
+      [247, 311, 370],
+      [174, 220, 262]
+    ];
+    audioState.musicStep = 0;
+    audioState.musicTimer = window.setInterval(() => {
+      if (accessibilityState.musicVolume <= 0) {
+        return;
+      }
+      const chord = progression[audioState.musicStep % progression.length];
+      chord.forEach((frequency, index) => {
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+        gainNode.gain.value = 0.0001;
+        gainNode.gain.exponentialRampToValueAtTime(0.028 - index * 0.004, context.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.55);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioState.musicGain);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.58);
+      });
+      playTone({ frequency: 110, duration: 0.09, type: "sine", volume: 0.03 });
+      audioState.musicStep += 1;
+    }, 620);
+  }
+
+  function stopMusicLoop() {
+    if (audioState.musicTimer) {
+      window.clearInterval(audioState.musicTimer);
+      audioState.musicTimer = null;
+    }
+  }
+
+  function updateCheckpoint(force = false) {
+    if (!force && world.score < world.checkpoint.nextAt) {
+      return;
+    }
+    world.checkpoint.score = world.score;
+    world.checkpoint.speed = world.speed;
+    world.checkpoint.levelIndex = world.levelIndex;
+    world.checkpoint.nextAt = world.score + config.checkpointInterval;
+  }
+
+  function restoreCheckpointAfterHit() {
+    if (world.lives <= 0) {
+      endRun();
+      return;
+    }
+    world.score = world.checkpoint.score;
+    world.speed = Math.max(config.startSpeed, world.checkpoint.speed);
+    world.levelIndex = world.checkpoint.levelIndex;
+    world.combo.count = 0;
+    world.combo.timer = 0;
+    world.combo.multiplier = 1;
+    world.speedBoostTimer = 0;
+    restartStageForCurrentLevel();
+    world.invulnerableTime = Math.max(world.invulnerableTime, 1.3);
+    updateHud();
   }
 
   function getCurrentTheme() {
@@ -679,11 +1087,14 @@ import {
   function announceLevelUp(level) {
     world.levelAnnouncement.text = `Level ${level.id}: ${level.name}`;
     world.levelAnnouncement.timer = config.levelAnnouncementDuration;
+    playLevelUpSfx();
+    burstCelebration({ particleCount: 92, spread: 92, originY: 0.58 });
   }
 
   function restartStageForCurrentLevel() {
     world.cameraX = 0;
     world.walls.length = 0;
+    world.obstacles.length = 0;
     world.collectibles.length = 0;
     world.nextSpawnX = world.width * 0.9;
     world.slide.active = false;
@@ -708,6 +1119,10 @@ import {
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
     runner.onGround = true;
+    runner.canDoubleJump = true;
+    runner.isSliding = false;
+    runner.slideTimer = 0;
+    runner.slideCooldown = 0;
     runner.coyoteTime = 0.1;
     runner.jumpBuffer = 0;
     runner.tilt = 0;
@@ -720,10 +1135,25 @@ import {
     const startingIndex = normalizedId - 1;
     world.levelIndex = startingIndex;
     world.score = getLevelStartScore(startingIndex);
+    world.coins = 0;
+    world.lives = config.maxLives;
+    world.combo.count = 0;
+    world.combo.timer = 0;
+    world.combo.multiplier = 1;
+    world.speedBoostTimer = 0;
+    world.checkpoint.score = world.score;
+    world.checkpoint.speed = world.speed;
+    world.checkpoint.levelIndex = world.levelIndex;
+    world.checkpoint.nextAt = world.score + config.checkpointInterval;
     restartStageForCurrentLevel();
     world.invulnerableTime = 0;
     world.levelAnnouncement.text = "";
     world.levelAnnouncement.timer = 0;
+    world.milestonePopup.text = "";
+    world.milestonePopup.timer = 0;
+    world.stats.coinsCollected = 0;
+    world.stats.combosTriggered = 0;
+    world.stats.longestCombo = 0;
     updateLevelProgression({ announce: false });
     updateHud();
   }
@@ -903,6 +1333,16 @@ import {
     world.cameraX = 0;
     world.speed = config.startSpeed;
     world.score = 0;
+    world.coins = 0;
+    world.lives = config.maxLives;
+    world.checkpoint.score = 0;
+    world.checkpoint.speed = config.startSpeed;
+    world.checkpoint.levelIndex = 0;
+    world.checkpoint.nextAt = config.checkpointInterval;
+    world.combo.count = 0;
+    world.combo.timer = 0;
+    world.combo.multiplier = 1;
+    world.speedBoostTimer = 0;
     world.levelIndex = 0;
     world.pendingLevelRestart = false;
     world.elapsed = 0;
@@ -910,7 +1350,13 @@ import {
     world.lastTime = 0;
     world.levelAnnouncement.text = "";
     world.levelAnnouncement.timer = 0;
+    world.milestonePopup.text = "";
+    world.milestonePopup.timer = 0;
+    world.stats.coinsCollected = 0;
+    world.stats.combosTriggered = 0;
+    world.stats.longestCombo = 0;
     world.walls.length = 0;
+    world.obstacles.length = 0;
     world.collectibles.length = 0;
     world.nextSpawnX = world.width * 0.9;
     world.slide.active = false;
@@ -935,6 +1381,11 @@ import {
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
     runner.onGround = true;
+    runner.canDoubleJump = true;
+    runner.isSliding = false;
+    runner.slideTimer = 0;
+    runner.slideCooldown = 0;
+    runner.jumpHeld = false;
     runner.coyoteTime = 0;
     runner.jumpBuffer = 0;
     runner.tilt = 0;
@@ -1069,25 +1520,61 @@ import {
     } else {
       hideShareLink();
     }
-    overlay.classList.remove("hidden");
+    if (!Number.isFinite(shareScore)) {
+      runStats.classList.add("hidden");
+      runStats.innerHTML = "";
+    }
+    revealScreen(overlay);
     updateCharacterUi();
   }
 
+  function setMenuScreen(screen, options = {}) {
+    const { focus = null } = options;
+    const nextScreen = screen === "settings" ? "settings" : "main";
+    menuState.screen = nextScreen;
+    mainMenuScreen?.classList.toggle("hidden", nextScreen !== "main");
+    settingsMenuScreen?.classList.toggle("hidden", nextScreen !== "settings");
+    settingsButton?.setAttribute("aria-expanded", String(nextScreen === "settings"));
+    if (focus === "settings" && nextScreen === "settings") {
+      settingsBackButton?.focus();
+    } else if (focus === "main" && nextScreen === "main") {
+      settingsButton?.focus();
+    }
+  }
+
   function hideOverlay() {
-    overlay.classList.add("hidden");
+    concealScreen(overlay);
+  }
+
+  function revealScreen(element) {
+    element.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      element.classList.add("is-visible");
+    });
+  }
+
+  function concealScreen(element) {
+    element.classList.remove("is-visible");
+    window.setTimeout(() => {
+      if (!element.classList.contains("is-visible")) {
+        element.classList.add("hidden");
+      }
+    }, config.screenTransitionMs);
   }
 
   function showMainMenu() {
+    stopMusicLoop();
     resetWorld();
     applyStartingLevel(getSelectedStartLevelId());
     world.mode = "ready";
+    setMenuScreen("main");
     showOverlay(mainMenuCopy.title, mainMenuCopy.subtitle, "Start Run", null, { layout: "start" });
   }
 
   function showSplashScreen() {
     world.mode = "splash";
     hideOverlay();
-    splashScreen.classList.remove("hidden");
+    revealScreen(splashScreen);
     splashContinueButton.focus();
   }
 
@@ -1095,12 +1582,13 @@ import {
     if (world.mode !== "splash") {
       return;
     }
-    splashScreen.classList.add("hidden");
+    concealScreen(splashScreen);
     showMainMenu();
     maybeShowWhatsNew();
   }
 
   function startRun() {
+    startMusicLoop();
     resetWorld();
     applyStartingLevel(getSelectedStartLevelId());
     world.mode = "running";
@@ -1122,16 +1610,38 @@ import {
   }
 
   function endRun() {
+    stopMusicLoop();
     const preset = getActivePreset();
     const level = getCurrentLevel();
+    const earnedAchievements = achievements
+      .filter((entry) => world.score >= entry.score)
+      .map((entry) => entry.label);
     const nextDestinationHint = Number.isFinite(level.nextScore)
       ? `${Math.max(0, level.nextScore - world.score)} more points unlocks Level ${level.id + 1}.`
       : "You reached the final destination.";
+    const achievementText = earnedAchievements.length
+      ? ` Achievements: ${earnedAchievements.join(", ")}.`
+      : "";
+    progressionState.coinBank += world.coins;
+    saveProgressionMeta();
+    const achievementProgress = achievements
+      .map((entry) => `${entry.label}: ${Math.min(100, Math.round((world.score / entry.score) * 100))}%`)
+      .join(" | ");
+    runStats.innerHTML = `
+      <h3>Run Statistics</h3>
+      <p>Coins this run: ${world.coins} (Bank: ${progressionState.coinBank})</p>
+      <p>Combos triggered: ${world.stats.combosTriggered} · Longest streak: ${world.stats.longestCombo}</p>
+      <p>Achievement progress: ${achievementProgress}</p>
+    `;
+    runStats.classList.remove("hidden");
     world.mode = "gameOver";
+    if (world.score >= achievements[0].score) {
+      burstCelebration({ particleCount: 120, spread: 108, originY: 0.52 });
+    }
     showOverlay(
       "Run Over",
-      `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. ${nextDestinationHint}`,
-      "Run Again",
+      `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. ${nextDestinationHint}${achievementText}`,
+      "Quick Restart",
       world.score
     );
   }
@@ -1169,6 +1679,9 @@ import {
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
     runner.onGround = true;
+    runner.canDoubleJump = true;
+    runner.isSliding = false;
+    runner.slideTimer = 0;
     runner.coyoteTime = 0.08;
     runner.jumpBuffer = 0;
     world.mode = "running";
@@ -1234,8 +1747,26 @@ import {
     if (world.mode !== "running") {
       return;
     }
+    runner.jumpHeld = true;
     runner.jumpBuffer = 0.12;
     attemptJump();
+  }
+
+  function releaseJump() {
+    runner.jumpHeld = false;
+    if (runner.vy < -config.shortHopCutoffVelocity) {
+      runner.vy *= config.shortHopReleaseDampen;
+    }
+  }
+
+  function queueSlide() {
+    if (world.mode !== "running" || !runner.onGround || runner.slideCooldown > 0) {
+      return;
+    }
+    const slideDuration = config.slideDuration * (getActivePreset().slideDurationMultiplier || 1);
+    runner.isSliding = true;
+    runner.slideTimer = slideDuration;
+    runner.slideCooldown = config.slideCooldown + slideDuration;
   }
 
   function attemptJump() {
@@ -1244,8 +1775,17 @@ import {
     }
     if (runner.onGround || runner.coyoteTime > 0) {
       runner.vy = -config.jumpVelocity * getActivePreset().jumpVelocityMultiplier;
+      playJumpSfx();
       runner.onGround = false;
+      runner.canDoubleJump = true;
       runner.coyoteTime = 0;
+      runner.jumpBuffer = 0;
+      return;
+    }
+    if (runner.canDoubleJump && !runner.isSliding) {
+      runner.vy = -config.jumpVelocity * getActivePreset().jumpVelocityMultiplier * 0.92;
+      playJumpSfx();
+      runner.canDoubleJump = false;
       runner.jumpBuffer = 0;
     }
   }
@@ -1311,6 +1851,40 @@ import {
 
   function getWallHeight() {
     return Math.round((config.wallHeight - 14) + 20 * getDifficulty());
+  }
+
+  function maybeSpawnExtraObstacle(x) {
+    if (Math.random() > 0.45) {
+      return;
+    }
+    const variantRoll = Math.random();
+    if (variantRoll < 0.34) {
+      world.obstacles.push({
+        type: "beachBall",
+        x: x + randomBetween(90, 180),
+        y: world.groundY - 34,
+        width: 34,
+        height: 34
+      });
+      return;
+    }
+    if (variantRoll < 0.67) {
+      world.obstacles.push({
+        type: "surfboard",
+        x: x + randomBetween(120, 220),
+        y: world.groundY - 30,
+        width: 88,
+        height: 30
+      });
+      return;
+    }
+    world.obstacles.push({
+      type: "lowBar",
+      x: x + randomBetween(140, 220),
+      y: world.groundY - 110,
+      width: 120,
+      height: 18
+    });
   }
   function activateSlideObstacle() {
     const slideHeight = config.slideHeight;
@@ -1380,9 +1954,33 @@ import {
           triggerCasinoBonus();
           return;
         }
-        world.score += 1;
+        world.combo.count += 1;
+        world.stats.longestCombo = Math.max(world.stats.longestCombo, world.combo.count);
+        playCollectSfx();
+        world.combo.timer = config.comboWindowSeconds;
+        const comboTier = Math.floor(world.combo.count / config.comboStep);
+        world.combo.multiplier = Math.min(
+          config.maxComboMultiplier,
+          1 + comboTier * 0.5
+        );
+        const points = Math.max(1, Math.round(world.combo.multiplier));
+        world.score += points;
+        world.coins += 1;
+        world.stats.coinsCollected += 1;
         world.speed = Math.min(config.maxSpeed, world.speed + getProgressiveSpeedGain());
+        if (world.score > 0 && world.score % config.checkpointInterval === 0) {
+          showMilestonePopup(`Checkpoint reached: ${world.score} points!`);
+        }
+        if (
+          comboTier > 0 &&
+          world.combo.count % (config.comboStep * config.speedBoostEveryCombos) === 0
+        ) {
+          world.stats.combosTriggered += 1;
+          world.speedBoostTimer = config.speedBoostDuration;
+          showMilestonePopup(`Combo chain x${world.combo.multiplier.toFixed(1)}!`);
+        }
         updateLevelProgression();
+        updateCheckpoint();
         updateHud();
       }
     }
@@ -1476,6 +2074,7 @@ import {
         taken: false
       });
     }
+    maybeSpawnExtraObstacle(x);
     const gapRange = getSpawnGapRange();
     world.nextSpawnX = x + width + randomBetween(gapRange.min, gapRange.max);
   }
@@ -1490,9 +2089,36 @@ import {
   function pruneWorld() {
     const cullX = world.cameraX - 220;
     world.walls = world.walls.filter((wall) => wall.x + wall.width > cullX);
+    world.obstacles = world.obstacles.filter((obstacle) => obstacle.x + obstacle.width > cullX);
     world.collectibles = world.collectibles.filter(
       (item) => !item.taken && item.x > cullX
     );
+  }
+
+  function updateObstacleHits(runnerRect) {
+    if (world.invulnerableTime > 0) {
+      return false;
+    }
+    for (const obstacle of world.obstacles) {
+      const rect = {
+        left: obstacle.x - world.cameraX,
+        top: obstacle.y,
+        width: obstacle.width,
+        height: obstacle.height
+      };
+      if (obstacle.type === "lowBar") {
+        if (runner.isSliding) {
+          continue;
+        }
+        if (runner.y + runner.height < obstacle.y + config.lowBarClearance) {
+          continue;
+        }
+      }
+      if (hasAabbCollision(runnerRect, rect)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function updateHud() {
@@ -1505,26 +2131,61 @@ import {
     levelValue.textContent = String(level.id);
     nextLevelValue.textContent =
       pointsToNext === null ? "Final destination reached" : `${pointsToNext} pts to L${level.id + 1}`;
+    livesValue.textContent = String(Math.max(0, world.lives));
+    comboValue.textContent = `x${world.combo.multiplier.toFixed(1)}`;
+    coinValue.textContent = String(world.coins);
+    const speedBoostText = world.speedBoostTimer > 0 ? " Speed boost active." : "";
+    const hudNarration = `Score ${world.score}. Coins ${world.coins}. Level ${level.id}. Lives ${world.lives}. Combo multiplier ${world.combo.multiplier.toFixed(1)}.${speedBoostText}`;
+    document.querySelector(".hud")?.setAttribute("aria-label", hudNarration);
+  }
+
+  function showMilestonePopup(text) {
+    world.milestonePopup.text = text;
+    world.milestonePopup.timer = config.milestonePopupDuration;
   }
 
   function update(dt) {
-    world.elapsed += dt;
-    world.cameraX += world.speed * dt;
-    world.speed = Math.min(config.maxSpeed, world.speed + dt * (0.8 + getDifficulty() * 1.4));
+    const scaledDt = dt * accessibilityState.speedScale;
+    world.elapsed += scaledDt;
+    world.cameraX += world.speed * scaledDt;
+    world.speed = Math.min(config.maxSpeed, world.speed + scaledDt * (0.8 + getDifficulty() * 1.4));
+    if (world.speedBoostTimer > 0) {
+      world.speedBoostTimer = Math.max(0, world.speedBoostTimer - scaledDt);
+      world.speed = Math.min(config.maxSpeed, world.speed + config.speedBoostAmount * scaledDt);
+    }
+    if (world.combo.timer > 0) {
+      world.combo.timer = Math.max(0, world.combo.timer - scaledDt);
+      if (world.combo.timer <= 0) {
+        world.combo.count = 0;
+        world.combo.multiplier = 1;
+      }
+    }
     if (world.invulnerableTime > 0) {
-      world.invulnerableTime = Math.max(0, world.invulnerableTime - dt);
+      world.invulnerableTime = Math.max(0, world.invulnerableTime - scaledDt);
+    }
+    if (world.milestonePopup.timer > 0) {
+      world.milestonePopup.timer = Math.max(0, world.milestonePopup.timer - scaledDt);
     }
 
     if (runner.jumpBuffer > 0) {
-      runner.jumpBuffer = Math.max(0, runner.jumpBuffer - dt);
+      runner.jumpBuffer = Math.max(0, runner.jumpBuffer - scaledDt);
     }
     if (runner.coyoteTime > 0) {
-      runner.coyoteTime = Math.max(0, runner.coyoteTime - dt);
+      runner.coyoteTime = Math.max(0, runner.coyoteTime - scaledDt);
+    }
+    if (runner.slideCooldown > 0) {
+      runner.slideCooldown = Math.max(0, runner.slideCooldown - scaledDt);
+    }
+    if (runner.slideTimer > 0) {
+      runner.slideTimer = Math.max(0, runner.slideTimer - scaledDt);
+      runner.isSliding = runner.slideTimer > 0;
+    } else {
+      runner.isSliding = false;
     }
     attemptJump();
 
-    runner.vy += config.gravity * dt;
-    runner.y += runner.vy * dt;
+    runner.vy += config.gravity * scaledDt;
+    runner.y += runner.vy * scaledDt;
 
     const runnerWorldX = world.cameraX + world.width * config.runnerScreenRatio;
     const worldLeft = runnerWorldX;
@@ -1533,6 +2194,7 @@ import {
       runner.y = world.groundY - runner.height;
       runner.vy = 0;
       runner.onGround = true;
+      runner.canDoubleJump = true;
       runner.coyoteTime = 0.1;
     } else {
       if (runner.onGround) {
@@ -1541,7 +2203,8 @@ import {
       runner.onGround = false;
     }
 
-    const runnerTop = runner.y + 6;
+    const hitboxHeight = getRunnerHitboxHeight();
+    const runnerTop = runner.y + (runner.height - hitboxHeight) + 6;
     const runnerBottom = runner.y + runner.height - 5;
     const runnerLeft = worldLeft + 8;
     const runnerRight = worldRight - 8;
@@ -1549,13 +2212,15 @@ import {
       left: world.width * config.runnerScreenRatio + 8,
       top: runnerTop,
       width: runner.width - 16,
-      height: runnerBottom - runnerTop
+      height: Math.max(10, runnerBottom - runnerTop)
     };
     if (world.invulnerableTime <= 0) {
       const collidingWall = getWallCollision(runnerLeft, runnerRight, runnerTop, runnerBottom);
       if (collidingWall) {
         if (!maybeTriggerRescue("wall", collidingWall)) {
-          endRun();
+          playHitSfx();
+          world.lives -= 1;
+          restoreCheckpointAfterHit();
         }
         return;
       }
@@ -1566,11 +2231,20 @@ import {
       updateHud();
       return;
     }
-    const hitSlide = updateSlideObstacle(dt, runnerRect);
+    const hitSlide = updateSlideObstacle(scaledDt, runnerRect);
     if (hitSlide && world.invulnerableTime <= 0) {
       if (!maybeTriggerRescue("slide")) {
-        endRun();
+        playHitSfx();
+        world.lives -= 1;
+        restoreCheckpointAfterHit();
       }
+      return;
+    }
+    const hitObstacle = updateObstacleHits(runnerRect);
+    if (hitObstacle) {
+      playHitSfx();
+      world.lives -= 1;
+      restoreCheckpointAfterHit();
       return;
     }
     ensureGenerated();
@@ -1845,6 +2519,37 @@ import {
     );
   }
 
+  function drawObstacles() {
+    for (const obstacle of world.obstacles) {
+      const x = obstacle.x - world.cameraX;
+      if (x + obstacle.width < -60 || x > world.width + 60) {
+        continue;
+      }
+      if (obstacle.type === "beachBall") {
+        ctx.fillStyle = "#ff9a42";
+        ctx.beginPath();
+        ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff6d5";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.32, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (obstacle.type === "surfboard") {
+        ctx.fillStyle = "#ef5f83";
+        fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 14);
+        ctx.fillStyle = "#ffe4b4";
+        ctx.fillRect(x + 14, obstacle.y + 10, obstacle.width - 28, 4);
+      } else if (obstacle.type === "lowBar") {
+        ctx.fillStyle = "#6fd8ff";
+        fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 8);
+        ctx.fillStyle = "rgba(111, 216, 255, 0.35)";
+        ctx.fillRect(x + 8, obstacle.y + obstacle.height, 5, 48);
+        ctx.fillRect(x + obstacle.width - 13, obstacle.y + obstacle.height, 5, 48);
+      }
+    }
+  }
+
   function drawCollectibles() {
     const preset = getActivePreset();
     const activeAssets = getActiveAssets();
@@ -1914,7 +2619,8 @@ import {
     const baseDrawScale = 1.24;
     const visualScale = baseDrawScale * Math.max(1, preset.runnerScale || 1);
     const drawW = runner.width * visualScale;
-    const drawH = runner.height * visualScale;
+    const slideScale = runner.isSliding ? 0.7 : 1;
+    const drawH = runner.height * visualScale * slideScale;
     const baseDrawH = runner.height * baseDrawScale;
     const drawYOffset = (baseDrawH - drawH) * 0.5;
     const shadowScale = visualScale / baseDrawScale;
@@ -1964,6 +2670,20 @@ import {
     }
 
     ctx.restore();
+  }
+
+  function drawLivesNearRunner() {
+    const x = world.width * config.runnerScreenRatio + runner.width * 0.5;
+    const y = runner.y - 22;
+    const lives = Math.max(0, world.lives);
+    for (let i = 0; i < config.maxLives; i += 1) {
+      ctx.globalAlpha = i < lives ? 1 : 0.24;
+      ctx.font = "18px \"Segoe UI Emoji\", sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("❤️", x + i * 20 - 20, y);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawRescueDoctor() {
@@ -2109,6 +2829,41 @@ import {
     ctx.restore();
   }
 
+  function drawMilestonePopup() {
+    if (world.milestonePopup.timer <= 0 || !world.milestonePopup.text) {
+      return;
+    }
+    const alpha = Math.min(1, world.milestonePopup.timer / config.milestonePopupDuration);
+    const y = world.height * 0.24 - (1 - alpha) * 20;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "rgba(12, 18, 30, 0.92)";
+    fillRoundedRect(world.width * 0.2, y, world.width * 0.6, 46, 10);
+    ctx.fillStyle = "#ffe495";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `26px ${uiMonoFont}`;
+    ctx.fillText(world.milestonePopup.text, world.width * 0.5, y + 24);
+    ctx.restore();
+  }
+
+  function drawScenerySection() {
+    const sections = ["Casino Deck", "Pool Area", "Nighttime Sailing"];
+    const sectionIndex = Math.floor(world.levelElapsed / 12) % sections.length;
+    const label = sections[sectionIndex];
+    if (label === "Nighttime Sailing") {
+      ctx.fillStyle = "rgba(9, 18, 48, 0.18)";
+      ctx.fillRect(0, 0, world.width, world.height);
+    }
+    ctx.fillStyle = "rgba(8, 18, 28, 0.56)";
+    fillRoundedRect(12, world.height - 54, 210, 36, 8);
+    ctx.fillStyle = "#d8f4ff";
+    ctx.font = `22px ${uiMonoFont}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, 24, world.height - 36);
+  }
+
   function render() {
     ctx.clearRect(0, 0, world.width, world.height);
 
@@ -2128,10 +2883,14 @@ import {
     drawGround();
     drawWalls();
     drawSlideObstacle();
+    drawObstacles();
     drawCollectibles();
+    drawScenerySection();
     drawRunner();
+    drawLivesNearRunner();
     drawRescueDoctor();
     drawLevelAnnouncement();
+    drawMilestonePopup();
   }
 
   function onFrame(timestamp) {
@@ -2156,7 +2915,14 @@ import {
   }
 
   function setupInput() {
+    const jumpKeys = new Set(["Space", "ArrowUp", "KeyW"]);
+    const slideKey = () => (accessibilityState.controlScheme === "left" ? "ArrowLeft" : "ArrowDown");
+
     window.addEventListener("keydown", (event) => {
+      const context = ensureAudioContext();
+      if (context && context.state === "suspended") {
+        context.resume().catch(() => {});
+      }
       if (
         world.mode === "splash" &&
         (event.code === "Space" || event.code === "ArrowUp" || event.code === "KeyW" || event.code === "Enter")
@@ -2168,15 +2934,34 @@ import {
         return;
       }
 
-      if (event.code === "Space" || event.code === "ArrowUp" || event.code === "KeyW") {
+      if (jumpKeys.has(event.code)) {
         event.preventDefault();
         if (!event.repeat) {
           queueJump();
         }
+        return;
+      }
+
+      if (event.code === slideKey() || event.code === "KeyS" || event.code === "ShiftLeft") {
+        event.preventDefault();
+        if (!event.repeat) {
+          queueSlide();
+        }
+      }
+    });
+    window.addEventListener("keyup", (event) => {
+      if (jumpKeys.has(event.code)) {
+        releaseJump();
       }
     });
 
     canvas.addEventListener("pointerdown", queueJump);
+    canvas.addEventListener("pointerdown", () => {
+      const context = ensureAudioContext();
+      if (context && context.state === "suspended") {
+        context.resume().catch(() => {});
+      }
+    });
     splashScreen.addEventListener("pointerdown", dismissSplashToMainMenu);
     splashContinueButton.addEventListener("click", dismissSplashToMainMenu);
     actionButton.addEventListener("click", () => {
@@ -2191,7 +2976,7 @@ import {
         }
       }
       if (world.mode === "gameOver") {
-        showMainMenu();
+        startRun();
         return;
       }
       startRun();
@@ -2220,22 +3005,46 @@ import {
     });
     window.addEventListener("resize", resizeCanvas);
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && releaseState.isOpen) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (releaseState.isOpen) {
         closeReleaseNotes();
+        return;
+      }
+      if (world.mode === "ready" && menuState.screen === "settings") {
+        setMenuScreen("main", { focus: "main" });
       }
     });
     helpButton.addEventListener("click", () => {
       openReleaseNotes({
         notes: [...releaseState.notes],
         introText:
-          "Mission guide: Collect drinks, dodge walls, and use bonus coins for a casino slot pull. Level milestones are 8, 18, 31, and 46 points. Browse release notes below.",
+          "Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. Level milestones are 8, 18, 31, and 46 points.",
         triggerEl: helpButton
       });
+    });
+    settingsButton?.addEventListener("click", () => {
+      setMenuScreen("settings", { focus: "settings" });
+    });
+    settingsBackButton?.addEventListener("click", () => {
+      setMenuScreen("main", { focus: "main" });
     });
     notesCloseButton.addEventListener("click", closeReleaseNotes);
     characterSelect.addEventListener("change", (event) => {
       const selected = String(event.target.value || "").toLowerCase();
       if (!isValidCharacter(selected)) {
+        return;
+      }
+      const preset = characterPresets[selected];
+      const isUnlocked = progressionState.unlockedCharacters.has(selected);
+      if (!isUnlocked && progressionState.coinBank >= (preset.unlockCost || 0)) {
+        progressionState.coinBank -= preset.unlockCost || 0;
+        progressionState.unlockedCharacters.add(selected);
+        saveProgressionMeta();
+      }
+      if (!progressionState.unlockedCharacters.has(selected)) {
+        updateCharacterUi();
         return;
       }
       currentCharacter = selected;
@@ -2252,12 +3061,64 @@ import {
         world.mode = "ready";
       }
     });
+    controlSchemeSelect.addEventListener("change", (event) => {
+      accessibilityState.controlScheme = event.target.value === "left" ? "left" : "right";
+      saveAccessibilityState();
+    });
+    speedScaleSelect.addEventListener("change", (event) => {
+      const selected = Number.parseFloat(event.target.value || "1");
+      accessibilityState.speedScale = Number.isFinite(selected) ? selected : 1;
+      saveAccessibilityState();
+    });
+    contrastToggle.addEventListener("change", (event) => {
+      accessibilityState.highContrast = Boolean(event.target.checked);
+      applyAccessibilityUi();
+      saveAccessibilityState();
+    });
+    musicVolumeRange.addEventListener("input", (event) => {
+      accessibilityState.musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+      ensureAudioContext();
+      if (audioState.musicGain) {
+        audioState.musicGain.gain.value = 0.18 * accessibilityState.musicVolume;
+      }
+      if (world.mode === "running" && accessibilityState.musicVolume > 0) {
+        startMusicLoop();
+      } else if (accessibilityState.musicVolume <= 0) {
+        stopMusicLoop();
+      }
+      saveAccessibilityState();
+    });
+    sfxVolumeRange.addEventListener("input", (event) => {
+      accessibilityState.sfxVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+      ensureAudioContext();
+      if (audioState.sfxGain) {
+        audioState.sfxGain.gain.value = 0.24 * accessibilityState.sfxVolume;
+      }
+      saveAccessibilityState();
+    });
   }
 
   function updateCharacterUi() {
+    if (!progressionState.unlockedCharacters.has(currentCharacter)) {
+      currentCharacter = "bryan";
+    }
     const preset = getActivePreset();
+    Array.from(characterSelect.options).forEach((option) => {
+      const key = String(option.value || "").toLowerCase();
+      const optionPreset = characterPresets[key];
+      if (!optionPreset) {
+        return;
+      }
+      const unlocked = progressionState.unlockedCharacters.has(key);
+      const lockSuffix = unlocked ? "" : ` (Locked: ${optionPreset.unlockCost})`;
+      option.textContent = `${optionPreset.name} + ${optionPreset.collectibleName}${lockSuffix}`;
+    });
+    const isUnlocked = progressionState.unlockedCharacters.has(currentCharacter);
+    const lockStatus = isUnlocked
+      ? "Unlocked."
+      : `Locked. ${preset.unlockCost} bank coins needed.`;
     characterSelect.value = currentCharacter;
-    characterDetails.textContent = `${preset.name} collects ${preset.collectibleName}. ${preset.details}`;
+    characterDetails.textContent = `${preset.name}: ${preset.abilityLabel}. ${preset.abilityDetail} ${lockStatus} Bank: ${progressionState.coinBank} coins.`;
     updateShareImageMeta();
     refreshShareLinkForCharacter();
     syncCharacterInLocation();
@@ -2265,6 +3126,8 @@ import {
 
   resizeCanvas();
   parseSharedRunnerFromUrl();
+  readAccessibilityState();
+  applyAccessibilityUi();
   hydrateProgressionState();
   unlockLevel(1);
   updateCharacterUi();

@@ -39,3 +39,6 @@ jobs:
 
       - name: Unit tests with coverage
         run: npm test
+
+      - name: NPM audit (high+)
+        run: npm audit --audit-level=high
