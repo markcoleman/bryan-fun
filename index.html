@@ -63,6 +63,10 @@
         <span class="hud-label">Coins</span>
         <span id="coinValue" class="hud-value">0</span>
       </div>
+      <div class="hud-item hud-item-account">
+        <span class="hud-label">Account</span>
+        <span id="authHudValue" class="hud-value hud-value-account">Guest</span>
+      </div>
     </section>
     <section class="overlay" id="overlay">
       <div class="overlay-card">
@@ -137,6 +141,24 @@
                 <label for="sfxVolumeRange">SFX Volume</label>
                 <input id="sfxVolumeRange" type="range" min="0" max="100" step="5" value="80">
               </div>
+              <section class="account-options" aria-label="Optional account sign in">
+                <p class="account-options-title">Optional Cloud Account (Supabase)</p>
+                <p id="authStatus" class="auth-status" aria-live="polite">Not signed in.</p>
+                <div class="auth-grid">
+                  <label for="authEmailInput">Email</label>
+                  <input id="authEmailInput" type="email" autocomplete="email" placeholder="you@example.com">
+                  <label for="authPasswordInput">Password</label>
+                  <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters">
+                </div>
+                <div class="auth-actions">
+                  <button id="createAccountButton" class="menu-nav-button auth-button" type="button">Create Account</button>
+                  <button id="signInButton" class="menu-nav-button auth-button" type="button">Sign In</button>
+                  <button id="signOutButton" class="menu-nav-button auth-button" type="button">Sign Out</button>
+                </div>
+                <p class="auth-note">
+                  Account is optional. Leave unsigned to keep playing locally on this device.
+                </p>
+              </section>
             </div>
             <button id="settingsBackButton" class="menu-nav-button settings-back" type="button">
               Back to Main Menu
