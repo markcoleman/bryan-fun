@@ -2126,23 +2126,34 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
   }
 
+  function clearActiveChallenge(options = {}) {
+    const { stripUrl = true } = options;
+    challengeState.active = null;
+    if (stripUrl) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("challenge")) {
+        url.searchParams.delete("challenge");
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
+    updateMetaPanels();
+  }
+
   function parseChallengeFromUrl() {
     const url = new URL(window.location.href);
     const encoded = url.searchParams.get("challenge");
     if (!encoded) {
-      challengeState.active = null;
-      updateMetaPanels();
+      clearActiveChallenge({ stripUrl: false });
       return;
     }
     const decoded = decodeChallengePayload(encoded, {
       supportedVersions: [CHALLENGE_CURRENT_VERSION]
     });
     if (!decoded.ok || !decoded.payload) {
-      challengeState.active = null;
+      clearActiveChallenge({ stripUrl: true });
       if (decoded.error === "expired") {
         showMilestonePopup("Challenge expired. Generating a fresh run.");
       }
-      updateMetaPanels();
       return;
     }
     challengeState.active = decoded.payload;
@@ -2312,13 +2323,22 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     if (perkCatalog[selectedPerk]) {
       world.activePerk = selectedPerk;
     }
-    const runChallenge = challengeState.active;
+    const selectedStartLevel = getSelectedStartLevelId();
+    let runChallenge = challengeState.active;
+    if (runChallenge) {
+      const challengeLevel = normalizeLevelId(runChallenge.level, selectedStartLevel);
+      const challengeRunner = isValidCharacter(runChallenge.runner) ? runChallenge.runner : currentCharacter;
+      if (selectedStartLevel !== challengeLevel || currentCharacter !== challengeRunner) {
+        clearActiveChallenge({ stripUrl: true });
+        runChallenge = null;
+      }
+    }
     if (runChallenge && isValidCharacter(runChallenge.runner)) {
       currentCharacter = runChallenge.runner;
     }
     const startLevelId = runChallenge
-      ? normalizeLevelId(runChallenge.level, getSelectedStartLevelId())
-      : getSelectedStartLevelId();
+      ? normalizeLevelId(runChallenge.level, selectedStartLevel)
+      : selectedStartLevel;
     const seededRun = runChallenge
       ? Number.parseInt(runChallenge.seed, 10)
       : hashSeed(`${Date.now()}-${currentCharacter}-${startLevelId}`);
@@ -2427,8 +2447,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
           url: rematchUrl
         };
         recordChallengeHistory("sent", rematchPayload, "rematch");
-        challengeState.active = null;
       }
+      clearActiveChallenge({ stripUrl: true });
     }
 
     const challengeCardPayload = buildChallengePayload(world.score, {
@@ -4123,6 +4143,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         updateCharacterUi();
         return;
       }
+      const challengeRunner = challengeState.active?.runner || "";
+      if (challengeState.active && selected !== challengeRunner) {
+        clearActiveChallenge({ stripUrl: true });
+        subtitleEl.textContent = mainMenuCopy.subtitle;
+      }
       currentCharacter = selected;
       updateCharacterUi();
       if (world.mode !== "running" && world.mode !== "casino") {
@@ -4130,7 +4155,13 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       }
     });
     startLevelSelect.addEventListener("change", (event) => {
-      progressionState.selectedStartLevel = normalizeLevelId(event.target.value, 1);
+      const selectedLevel = normalizeLevelId(event.target.value, 1);
+      progressionState.selectedStartLevel = selectedLevel;
+      const challengeLevel = normalizeLevelId(challengeState.active?.level, selectedLevel);
+      if (challengeState.active && selectedLevel !== challengeLevel) {
+        clearActiveChallenge({ stripUrl: true });
+        subtitleEl.textContent = mainMenuCopy.subtitle;
+      }
       updateStartLevelDetails();
       if (world.mode !== "running" && world.mode !== "casino" && world.mode !== "rescue") {
         applyStartingLevel(progressionState.selectedStartLevel);
