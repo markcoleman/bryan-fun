@@ -137,6 +137,11 @@ test("buildPatternDeck is deterministic and avoids impossible streaks", () => {
   const second = buildPatternDeck(404, 3, { deckLength: 20 });
   assert.deepEqual(first, second);
 
+  first.forEach((pattern) => {
+    assert.equal(typeof pattern, "object");
+    assert.equal(typeof pattern.difficulty, "string");
+  });
+
   let hardStreak = 0;
   let lowBarStreak = 0;
   first.forEach((pattern) => {

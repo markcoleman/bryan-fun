@@ -2759,10 +2759,29 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     ensureSpawnDirectorAct();
     const deck = world.spawnDirector.deck;
     if (!deck.length) {
-      return null;
+      return {
+        id: "runtime-fallback",
+        act: getRunAct(),
+        difficulty: "medium",
+        gapScale: 1,
+        wallHeightScale: 1,
+        extraObstacle: "none",
+        riskGateBias: 0.6
+      };
     }
     const pattern = deck[world.spawnDirector.cursor % deck.length];
     world.spawnDirector.cursor += 1;
+    if (!pattern || typeof pattern !== "object") {
+      return {
+        id: "runtime-fallback",
+        act: getRunAct(),
+        difficulty: "medium",
+        gapScale: 1,
+        wallHeightScale: 1,
+        extraObstacle: "none",
+        riskGateBias: 0.6
+      };
+    }
     return pattern;
   }
 

@@ -346,6 +346,9 @@ export function getDailyQuestSeed(dateInput = new Date(), userSeed = "") {
 }
 
 function canUsePatternAfterState(pattern, state) {
+  if (!pattern || typeof pattern !== "object") {
+    return false;
+  }
   const nextHardStreak = pattern.difficulty === "hard" ? state.hardStreak + 1 : 0;
   const nextLowBarStreak = pattern.extraObstacle === "lowBar" ? state.lowBarStreak + 1 : 0;
   if (nextHardStreak > 2) {
@@ -358,6 +361,9 @@ function canUsePatternAfterState(pattern, state) {
 }
 
 function applyPatternState(pattern, state) {
+  if (!pattern || typeof pattern !== "object") {
+    return state;
+  }
   return {
     hardStreak: pattern.difficulty === "hard" ? state.hardStreak + 1 : 0,
     lowBarStreak: pattern.extraObstacle === "lowBar" ? state.lowBarStreak + 1 : 0
@@ -377,9 +383,28 @@ function normalizeAct(act) {
 
 export function buildPatternDeck(seed, act, options = {}) {
   const normalizedAct = normalizeAct(act);
-  const sourcePatterns = PATTERN_LIBRARY_BY_ACT[normalizedAct] || PATTERN_LIBRARY_BY_ACT[1];
+  const sourcePatternsRaw = PATTERN_LIBRARY_BY_ACT[normalizedAct] || PATTERN_LIBRARY_BY_ACT[1];
+  const sourcePatterns = Array.isArray(sourcePatternsRaw)
+    ? sourcePatternsRaw.filter((pattern) => pattern && typeof pattern === "object")
+    : [];
+  const fallbackPattern = {
+    id: "fallback-safe",
+    difficulty: "medium",
+    gapScale: 1,
+    wallHeightScale: 1,
+    extraObstacle: "none",
+    riskGateBias: 0.6
+  };
   const deckLength = Math.max(4, Math.min(32, toFiniteInt(options.deckLength, 12, 4, 32)));
   const rng = makeRng(`${seed}:${normalizedAct}`);
+
+  if (!sourcePatterns.length) {
+    return Array.from({ length: deckLength }, (_, index) => ({
+      ...fallbackPattern,
+      slot: index,
+      act: normalizedAct
+    }));
+  }
 
   const deck = [];
   let state = { hardStreak: 0, lowBarStreak: 0 };
@@ -399,7 +424,8 @@ export function buildPatternDeck(seed, act, options = {}) {
     if (!selected) {
       selected =
         sourcePatterns.find((pattern) => pattern.difficulty !== "hard") ||
-        sourcePatterns[0];
+        sourcePatterns[0] ||
+        fallbackPattern;
     }
     state = applyPatternState(selected, state);
     deck.push({
