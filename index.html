@@ -38,47 +38,35 @@
       </div>
     </section>
     <section class="hud" aria-live="polite">
-      <div class="hud-item">
-        <span class="hud-label">Score</span>
-        <span id="scoreValue" class="hud-value">0</span>
+      <div class="hud-primary">
+        <div class="hud-item hud-item-score">
+          <span class="hud-label">Score</span>
+          <span id="scoreValue" class="hud-value">0</span>
+        </div>
+        <div class="hud-item hud-item-lives">
+          <span class="hud-label">Lives</span>
+          <span id="livesValue" class="hud-value">3</span>
+        </div>
+        <div class="hud-item hud-item-destination">
+          <span class="hud-label">Destination</span>
+          <span id="levelValue" class="hud-value hud-value-destination">Level 1</span>
+          <span id="nextLevelValue" class="hud-detail">8 pts to L2</span>
+        </div>
       </div>
-      <div class="hud-item">
-        <span class="hud-label">Speed</span>
-        <span id="speedValue" class="hud-value">0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">Level</span>
-        <span id="levelValue" class="hud-value">1</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">Next</span>
-        <span id="nextLevelValue" class="hud-value">8 pts to L2</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">Lives</span>
-        <span id="livesValue" class="hud-value">3</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">Rescue</span>
-        <span id="rescueValue" class="hud-value">0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">Combo</span>
-        <span id="comboValue" class="hud-value">x1.0</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">Coins</span>
-        <span id="coinValue" class="hud-value">0</span>
-      </div>
-      <div class="hud-item hud-item-account">
-        <span class="hud-label">Account</span>
-        <span id="authHudValue" class="hud-value hud-value-account">Guest</span>
+      <div class="hud-statuses">
+        <div id="comboHudItem" class="hud-chip hidden">
+          <span class="hud-chip-label">Momentum</span>
+          <span id="comboValue" class="hud-chip-value">Combo x1.0</span>
+        </div>
+        <div id="rescueHudItem" class="hud-chip hidden">
+          <span class="hud-chip-label">Rescue</span>
+          <span id="rescueValue" class="hud-chip-value">1 token</span>
+        </div>
       </div>
     </section>
     <section class="overlay" id="overlay">
       <div class="overlay-card">
         <div class="overlay-heading">
-          <p class="start-marquee">Press Start</p>
           <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
           <p class="subtitle">Tap, click, or press Space / Arrow Up to jump.</p>
         </div>
@@ -111,11 +99,6 @@
                 </select>
                 <p id="perkDetails" class="perk-details"></p>
               </div>
-              <section class="meta-progress" aria-label="Cruise pass and quests">
-                <p id="passStatus" class="meta-line"></p>
-                <p id="dailyQuestStatus" class="meta-line"></p>
-                <p id="challengeBanner" class="meta-line"></p>
-              </section>
               <div class="menu-quick-actions">
                 <button
                   id="settingsButton"
@@ -125,15 +108,6 @@
                   aria-expanded="false"
                 >
                   Settings
-                </button>
-                <button
-                  id="helpButton"
-                  class="menu-nav-button menu-help"
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-controls="notesDialog"
-                >
-                  Help &amp; Notes
                 </button>
               </div>
             </div>
@@ -162,6 +136,21 @@
                 <label for="sfxVolumeRange">SFX Volume</label>
                 <input id="sfxVolumeRange" type="range" min="0" max="100" step="5" value="80">
               </div>
+              <section class="menu-panel menu-panel-help" aria-label="Help and notes">
+                <p class="menu-panel-title">Help &amp; Notes</p>
+                <p class="settings-support-copy">
+                  Learn the mission, review the latest updates, and check optional progression details without crowding the start screen.
+                </p>
+                <button
+                  id="helpButton"
+                  class="menu-nav-button menu-help"
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-controls="notesDialog"
+                >
+                  Open Help &amp; Notes
+                </button>
+              </section>
               <section class="account-options" aria-label="Optional account sign in">
                 <p class="account-options-title">Optional Cloud Account (Supabase)</p>
                 <p id="authStatus" class="auth-status" aria-live="polite">Not signed in.</p>

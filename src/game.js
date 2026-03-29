@@ -24,13 +24,12 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   const actionButton = document.getElementById("actionButton");
   const shareLink = document.getElementById("shareLink");
   const scoreValue = document.getElementById("scoreValue");
-  const speedValue = document.getElementById("speedValue");
   const levelValue = document.getElementById("levelValue");
   const nextLevelValue = document.getElementById("nextLevelValue");
   const livesValue = document.getElementById("livesValue");
+  const comboHudItem = document.getElementById("comboHudItem");
   const comboValue = document.getElementById("comboValue");
-  const coinValue = document.getElementById("coinValue");
-  const authHudValue = document.getElementById("authHudValue");
+  const rescueHudItem = document.getElementById("rescueHudItem");
   const settingsButton = document.getElementById("settingsButton");
   const settingsBackButton = document.getElementById("settingsBackButton");
   const helpButton = document.getElementById("helpButton");
@@ -59,9 +58,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   const rescueValue = document.getElementById("rescueValue");
   const perkSelect = document.getElementById("perkSelect");
   const perkDetails = document.getElementById("perkDetails");
-  const passStatus = document.getElementById("passStatus");
-  const dailyQuestStatus = document.getElementById("dailyQuestStatus");
-  const challengeBanner = document.getElementById("challengeBanner");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
   const uiPixelFont = "\"Press Start 2P\", \"Courier New\", monospace";
@@ -580,7 +576,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   ];
   const mainMenuCopy = {
     title: "Bryan's Bonkers Cruise Dash",
-    subtitle: "Pick a runner, choose a start level, and hit Start Run. Open Settings for controls, speed, contrast, and audio."
+    subtitle: "Pick a runner, choose a start level, load a perk, and hit Start Run. Open Settings for controls, audio, and help."
   };
   const menuState = {
     screen: "main"
@@ -602,16 +598,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     ogImageHeight: document.querySelector('meta[property="og:image:height"]'),
     twitterImage: document.querySelector('meta[name="twitter:image"]')
   };
-
-  function updateAuthHudLabel() {
-    if (!authHudValue) {
-      return;
-    }
-    const email = authState.user?.email || "";
-    const displayName = email ? email.split("@")[0] : "Guest";
-    authHudValue.textContent = displayName || "Guest";
-    authHudValue.title = email || "Guest";
-  }
 
   function inferAuthRedirectUrl() {
     const { origin } = window.location;
@@ -675,19 +661,16 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       createAccountButton.disabled = true;
       signInButton.disabled = true;
       signOutButton.disabled = true;
-      updateAuthHudLabel();
       return;
     }
     if (authState.user) {
       setAuthStatusMessage(`Signed in as ${authState.user.email || "account user"}.`);
       authEmailInput.value = authState.user.email || authEmailInput.value;
       signOutButton.disabled = authState.busy;
-      updateAuthHudLabel();
       return;
     }
     setAuthStatusMessage("Not signed in.");
     signOutButton.disabled = true;
-    updateAuthHudLabel();
   }
 
   function loadImageWithReadyFlag(src, fallbackSrc = null) {
@@ -1315,28 +1298,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   }
 
   function updateMetaPanels() {
-    if (passStatus) {
-      const passXp = profileState.data.pass?.xp || 0;
-      const passLevel = getPassLevelFromXp(passXp);
-      const xpIntoLevel = passXp - (passLevel - 1) * config.passXpPerLevel;
-      const slots = profileState.data.pass?.unlockedPerkSlots || 1;
-      passStatus.textContent = `Cruise Pass Lv${passLevel} · XP ${xpIntoLevel}/${config.passXpPerLevel} · Perk Slots ${slots}`;
-    }
-    if (dailyQuestStatus) {
-      const total = questState.dailyQuests.length;
-      const completed = questState.dailyQuests.filter((quest) => dailyState.completedQuestIds.has(quest.id)).length;
-      dailyQuestStatus.textContent = total
-        ? `Daily Voyage Quests: ${completed}/${total} complete`
-        : "Daily Voyage Quests refresh each day.";
-    }
-    if (challengeBanner) {
-      if (challengeState.active) {
-        const payload = challengeState.active;
-        challengeBanner.textContent = `Active Challenge: beat ${payload.targetScore} on Level ${payload.level} as ${payload.runner}.`;
-      } else {
-        challengeBanner.textContent = "No active challenge link loaded.";
-      }
-    }
+    // Progression systems still update and surface in post-run stats,
+    // but they no longer occupy persistent menu real estate.
   }
 
   function grantPassRewards({ xp = 0, coins = 0, reason = "" } = {}) {
@@ -1844,6 +1807,23 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
   }
 
+  function hasUnseenReleaseNotes() {
+    const lastSeenVersion = readLastSeenVersion();
+    if (!lastSeenVersion) {
+      return true;
+    }
+    return compareVersions(lastSeenVersion, releaseState.currentVersion) < 0;
+  }
+
+  function updateHelpButtonLabel() {
+    if (!helpButton) {
+      return;
+    }
+    const hasUnseen = hasUnseenReleaseNotes();
+    helpButton.textContent = hasUnseen ? "Open Help & Notes (New)" : "Open Help & Notes";
+    helpButton.dataset.fresh = hasUnseen ? "true" : "false";
+  }
+
   function getNotesSince(version) {
     if (!version) {
       return [...releaseState.notes];
@@ -1900,6 +1880,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     if (markSeen) {
       saveCurrentVersion();
     }
+    updateHelpButtonLabel();
   }
 
   function closeReleaseNotes() {
@@ -1915,21 +1896,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   }
 
   function maybeShowWhatsNew() {
-    const lastSeenVersion = readLastSeenVersion();
-    if (lastSeenVersion && compareVersions(lastSeenVersion, releaseState.currentVersion) >= 0) {
-      return;
-    }
-    const unseenNotes = getNotesSince(lastSeenVersion);
-    const hasSavedVersion = Boolean(lastSeenVersion);
-    const introText = hasSavedVersion && unseenNotes.length
-      ? `You are now on v${releaseState.currentVersion}. Here is what changed since v${lastSeenVersion}.`
-      : "Welcome! Here are the full release notes.";
-    openReleaseNotes({
-      notes: unseenNotes.length ? unseenNotes : [...releaseState.notes],
-      introText,
-      triggerEl: helpButton,
-      markSeen: true
-    });
+    updateHelpButtonLabel();
   }
 
   function resizeCanvas() {
@@ -2295,6 +2262,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     buildDailyQuests();
     updatePerkUi();
     updateMetaPanels();
+    updateHelpButtonLabel();
     const subtitle = challengeState.active
       ? `Challenge loaded: beat ${challengeState.active.targetScore} with ${challengeState.active.runner} on Level ${challengeState.active.level}.`
       : mainMenuCopy.subtitle;
@@ -3187,22 +3155,45 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
   function updateHud() {
     scoreValue.textContent = String(world.score);
-    speedValue.textContent = String(Math.round(world.speed));
     const level = getCurrentLevel();
     const pointsToNext = Number.isFinite(level.nextScore)
       ? Math.max(0, level.nextScore - world.score)
       : null;
-    levelValue.textContent = String(level.id);
+    levelValue.textContent = `Level ${level.id}`;
     nextLevelValue.textContent =
       pointsToNext === null ? "Final destination reached" : `${pointsToNext} pts to L${level.id + 1}`;
     livesValue.textContent = String(Math.max(0, world.lives));
-    if (rescueValue) {
-      rescueValue.textContent = String(world.rescueTokens);
+
+    const comboActive = world.combo.multiplier > 1 || world.speedBoostTimer > 0;
+    if (comboHudItem) {
+      comboHudItem.classList.toggle("hidden", !comboActive);
     }
-    comboValue.textContent = `x${world.combo.multiplier.toFixed(1)}`;
-    coinValue.textContent = String(world.coins);
-    const speedBoostText = world.speedBoostTimer > 0 ? " Speed boost active." : "";
-    const hudNarration = `Score ${world.score}. Coins ${world.coins}. Level ${level.id}. Lives ${world.lives}. Rescue tokens ${world.rescueTokens}. Combo multiplier ${world.combo.multiplier.toFixed(1)}.${speedBoostText}`;
+    if (comboValue) {
+      const comboBits = [];
+      if (world.combo.multiplier > 1) {
+        comboBits.push(`Combo x${world.combo.multiplier.toFixed(1)}`);
+      }
+      if (world.speedBoostTimer > 0) {
+        comboBits.push("Boost active");
+      }
+      comboValue.textContent = comboBits.join(" • ") || "Momentum ready";
+    }
+
+    const rescueActive = world.rescueTokens > 0;
+    if (rescueHudItem) {
+      rescueHudItem.classList.toggle("hidden", !rescueActive);
+    }
+    if (rescueValue) {
+      rescueValue.textContent = world.rescueTokens === 1 ? "1 token" : `${world.rescueTokens} tokens`;
+    }
+
+    const destinationText =
+      pointsToNext === null
+        ? "Final destination reached."
+        : `${pointsToNext} points to Level ${level.id + 1}.`;
+    const comboNarration = comboActive && comboValue ? ` Momentum ${comboValue.textContent}.` : "";
+    const rescueNarration = rescueActive ? ` Rescue tokens ${world.rescueTokens}.` : "";
+    const hudNarration = `Score ${world.score}. Lives ${world.lives}. Destination Level ${level.id}. ${destinationText}${comboNarration}${rescueNarration}`;
     document.querySelector(".hud")?.setAttribute("aria-label", hudNarration);
   }
 
@@ -4113,11 +4104,20 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       }
     });
     helpButton.addEventListener("click", () => {
+      const lastSeenVersion = readLastSeenVersion();
+      const unseenNotes = getNotesSince(lastSeenVersion);
+      const hasSavedVersion = Boolean(lastSeenVersion);
+      const hasUnseen = Boolean(unseenNotes.length) &&
+        (!lastSeenVersion || compareVersions(lastSeenVersion, releaseState.currentVersion) < 0);
       openReleaseNotes({
-        notes: [...releaseState.notes],
-        introText:
-          "Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. Level milestones are 8, 18, 31, and 46 points.",
-        triggerEl: helpButton
+        notes: hasSavedVersion && hasUnseen ? unseenNotes : [...releaseState.notes],
+        introText: !hasSavedVersion
+          ? "Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. Here are the full release notes."
+          : hasUnseen
+          ? `Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. New in v${releaseState.currentVersion}:`
+          : "Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. Level milestones are 8, 18, 31, and 46 points.",
+        triggerEl: helpButton,
+        markSeen: hasUnseen
       });
     });
     settingsButton?.addEventListener("click", () => {
