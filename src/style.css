@@ -387,13 +387,15 @@ body::after {
 }
 
 .character-picker,
-.start-level-picker {
+.start-level-picker,
+.perk-picker {
   display: grid;
   gap: 8px;
 }
 
 .character-picker label,
-.start-level-picker label {
+.start-level-picker label,
+.perk-picker label {
   font-family: var(--pixel-font);
   font-size: clamp(0.48rem, 1.38vw, 0.62rem);
   text-transform: uppercase;
@@ -403,6 +405,7 @@ body::after {
 
 #characterSelect,
 #startLevelSelect,
+#perkSelect,
 #controlSchemeSelect,
 #speedScaleSelect {
   width: 100%;
@@ -426,6 +429,7 @@ body::after {
 
 #characterSelect:focus,
 #startLevelSelect:focus,
+#perkSelect:focus,
 #controlSchemeSelect:focus,
 #speedScaleSelect:focus {
   border-color: var(--accent);
@@ -450,11 +454,27 @@ body::after {
 }
 
 .character-details,
-.start-level-details {
+.start-level-details,
+.perk-details {
   margin: 0;
   font-size: 1.12rem;
   line-height: 1.15;
   color: #d7eff9;
+}
+
+.meta-progress {
+  border: 2px solid rgba(118, 255, 212, 0.34);
+  background: rgba(7, 19, 33, 0.72);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.meta-line {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.08;
+  color: #cdeaf6;
 }
 
 .accessibility-options {
@@ -829,6 +849,7 @@ body.high-contrast .hud-value {
 .notes-scroll:focus-visible,
 #characterSelect:focus-visible,
 #startLevelSelect:focus-visible,
+#perkSelect:focus-visible,
 #controlSchemeSelect:focus-visible,
 #speedScaleSelect:focus-visible {
   outline: 3px solid #fff;

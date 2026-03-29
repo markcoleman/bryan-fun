@@ -1,6 +1,13 @@
 import {
+  buildPatternDeck,
+  CHALLENGE_CURRENT_VERSION,
+  createDefaultProfileV2,
+  decodeChallengePayload,
+  encodeChallengePayload,
   getNotesSince as getNotesSinceVersion,
+  getDailyQuestSeed,
   getProgressiveSpeedGain as calculateProgressiveSpeedGain,
+  migrateProfileV2,
   normalizeLevelId as clampLevelId
 } from "./game-logic.js";
 import confetti from "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm";
@@ -49,6 +56,12 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   const signInButton = document.getElementById("signInButton");
   const signOutButton = document.getElementById("signOutButton");
   const runStats = document.getElementById("runStats");
+  const rescueValue = document.getElementById("rescueValue");
+  const perkSelect = document.getElementById("perkSelect");
+  const perkDetails = document.getElementById("perkDetails");
+  const passStatus = document.getElementById("passStatus");
+  const dailyQuestStatus = document.getElementById("dailyQuestStatus");
+  const challengeBanner = document.getElementById("challengeBanner");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
   const uiPixelFont = "\"Press Start 2P\", \"Courier New\", monospace";
@@ -98,7 +111,14 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     speedBoostAmount: 36,
     screenTransitionMs: 320,
     milestonePopupDuration: 1.35,
-    lowBarClearance: 42
+    lowBarClearance: 42,
+    actOneDuration: 45,
+    actTwoDuration: 105,
+    riskGateIntervalSeconds: 20,
+    rescueTokenComboMilestone: 6,
+    challengeDefaultHours: 48,
+    passXpPerLevel: 180,
+    runQuestCount: 3
   };
   const imagePath = (fileName) => `assets/images/${fileName}`;
   const levelBackgroundSources = [
@@ -442,10 +462,96 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     storageKey: "bbcd:maxUnlockedLevel",
     bankStorageKey: "bbcd:coinBank",
     unlockStorageKey: "bbcd:unlockedCharacters",
+    profileStorageKey: "bbcd:profile:v2",
     maxUnlockedLevel: 1,
     selectedStartLevel: 1,
     coinBank: 0,
     unlockedCharacters: new Set(["bryan"])
+  };
+  const profileState = {
+    data: createDefaultProfileV2()
+  };
+  const perkCatalog = {
+    safe_landing: {
+      id: "safe_landing",
+      name: "Safe Landing",
+      detail: "Extends coyote window for safer late jumps.",
+      coyoteMultiplier: 1.55
+    },
+    combo_shield: {
+      id: "combo_shield",
+      name: "Combo Shield",
+      detail: "The first combo drop in a run is forgiven.",
+      comboShield: true
+    },
+    lucky_pull: {
+      id: "lucky_pull",
+      name: "Lucky Pull",
+      detail: "Raises bonus token odds from slot markers.",
+      bonusChanceMultiplier: 1.6
+    }
+  };
+  const voyageQuestTemplates = [
+    {
+      key: "coins",
+      title: "Collect {target} drinks",
+      metric: "coinsCollected",
+      targets: [8, 10, 12, 14],
+      rewardXp: 34,
+      rewardCoins: 8
+    },
+    {
+      key: "combo",
+      title: "Reach combo streak {target}",
+      metric: "longestCombo",
+      targets: [6, 8, 10],
+      rewardXp: 40,
+      rewardCoins: 10
+    },
+    {
+      key: "score",
+      title: "Reach score {target}",
+      metric: "score",
+      targets: [16, 20, 24, 30],
+      rewardXp: 46,
+      rewardCoins: 12
+    },
+    {
+      key: "level",
+      title: "Reach destination level {target}",
+      metric: "levelReached",
+      targets: [2, 3, 4],
+      rewardXp: 55,
+      rewardCoins: 12
+    },
+    {
+      key: "survive",
+      title: "Survive {target}s in one run",
+      metric: "survivalSeconds",
+      targets: [45, 60, 80],
+      rewardXp: 48,
+      rewardCoins: 11
+    }
+  ];
+  const dailyState = {
+    storageKey: "bbcd:daily:v1",
+    dateKey: "",
+    seed: 0,
+    completedQuestIds: new Set()
+  };
+  const challengeState = {
+    storageKey: "bbcd:challenge-history:v1",
+    active: null,
+    history: {
+      received: [],
+      sent: []
+    }
+  };
+  const questState = {
+    runQuests: [],
+    dailyQuests: [],
+    completedRunQuestIds: new Set(),
+    comboShieldUsed: false
   };
   const accessibilityState = {
     controlsStorageKey: "bbcd:controlScheme",
@@ -497,6 +603,16 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     twitterImage: document.querySelector('meta[name="twitter:image"]')
   };
 
+  function updateAuthHudLabel() {
+    if (!authHudValue) {
+      return;
+    }
+    const email = authState.user?.email || "";
+    const displayName = email ? email.split("@")[0] : "Guest";
+    authHudValue.textContent = displayName || "Guest";
+    authHudValue.title = email || "Guest";
+  }
+
   function inferAuthRedirectUrl() {
     const { origin } = window.location;
     if (origin === "http://localhost:8080") {
@@ -518,19 +634,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
   function getSupabaseAnonKey() {
     const fromStorage = readStoredAnonKey();
-  function updateAuthHudLabel() {
-    if (!authHudValue) {
-      return;
-    }
-    const email = authState.user?.email || "";
-    const displayName = email ? email.split("@")[0] : "Guest";
-    authHudValue.textContent = displayName || "Guest";
-    authHudValue.title = email || "Guest";
-  }
-
-      updateAuthHudLabel();
-      updateAuthHudLabel();
-    updateAuthHudLabel();
     return supabaseConfig.anonKey || fromStorage;
   }
 
@@ -572,16 +675,19 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       createAccountButton.disabled = true;
       signInButton.disabled = true;
       signOutButton.disabled = true;
+      updateAuthHudLabel();
       return;
     }
     if (authState.user) {
       setAuthStatusMessage(`Signed in as ${authState.user.email || "account user"}.`);
       authEmailInput.value = authState.user.email || authEmailInput.value;
       signOutButton.disabled = authState.busy;
+      updateAuthHudLabel();
       return;
     }
     setAuthStatusMessage("Not signed in.");
     signOutButton.disabled = true;
+    updateAuthHudLabel();
   }
 
   function loadImageWithReadyFlag(src, fallbackSrc = null) {
@@ -723,7 +829,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     stats: {
       coinsCollected: 0,
       combosTriggered: 0,
-      longestCombo: 0
+      longestCombo: 0,
+      questsCompleted: 0,
+      rescueTokensUsed: 0
     },
     walls: [],
     obstacles: [],
@@ -751,6 +859,26 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       pendingPull: false,
       pendingResume: false,
       levelRestartQueued: false
+    },
+    rescueTokens: 0,
+    activePerk: "safe_landing",
+    runSeed: 0,
+    runStartLevel: 1,
+    spawnDirector: {
+      activeAct: 1,
+      deck: [],
+      cursor: 0,
+      nextRiskGateAt: config.riskGateIntervalSeconds,
+      rngState: 1,
+      gateIndex: 0,
+      actAnnouncementShown: false
+    },
+    challenge: {
+      active: false,
+      targetScore: 0,
+      seed: 0,
+      chainDepth: 0,
+      beaten: false
     },
     invulnerableTime: 0
   };
@@ -780,8 +908,44 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     return characterAssets[currentCharacter] || characterAssets.bryan;
   }
 
-  function randomBetween(min, max) {
-    return min + Math.random() * (max - min);
+  function randomBetween(min, max, rng = Math.random) {
+    return min + rng() * (max - min);
+  }
+
+  function hashSeed(input) {
+    const text = String(input ?? "");
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function setRunSeed(seed) {
+    const safeSeed = Number.isFinite(seed) ? seed >>> 0 : hashSeed(`${Date.now()}-${Math.random()}`);
+    world.runSeed = safeSeed;
+    world.spawnDirector.rngState = safeSeed || 1;
+  }
+
+  function runRandom() {
+    world.spawnDirector.rngState =
+      (Math.imul(world.spawnDirector.rngState || 1, 1664525) + 1013904223) >>> 0;
+    return (world.spawnDirector.rngState & 0xffffffff) / 0x100000000;
+  }
+
+  function getActivePerkConfig() {
+    return perkCatalog[world.activePerk] || perkCatalog.safe_landing;
+  }
+
+  function getBaseCoyoteWindow() {
+    const perk = getActivePerkConfig();
+    return 0.1 * (perk.coyoteMultiplier || 1);
+  }
+
+  function getBonusSpawnChance() {
+    const perk = getActivePerkConfig();
+    return Math.min(0.9, config.bonusSpawnChance * (perk.bonusChanceMultiplier || 1));
   }
 
   function getCurrentLevel() {
@@ -801,6 +965,146 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     } catch (_) {
       return 1;
     }
+  }
+
+  function safeParseJson(value, fallback) {
+    try {
+      return JSON.parse(value);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function getPassLevelFromXp(xp) {
+    const safeXp = Number.isFinite(xp) ? Math.max(0, xp) : 0;
+    return Math.max(1, Math.floor(safeXp / config.passXpPerLevel) + 1);
+  }
+
+  function updateProfileFromRuntime() {
+    const nextProfile = {
+      ...profileState.data,
+      pass: {
+        ...profileState.data.pass,
+        level: getPassLevelFromXp(profileState.data.pass?.xp || 0)
+      },
+      progression: {
+        ...profileState.data.progression,
+        maxUnlockedLevel: progressionState.maxUnlockedLevel,
+        coinBank: progressionState.coinBank,
+        unlockedCharacters: [...progressionState.unlockedCharacters]
+      }
+    };
+    profileState.data = nextProfile;
+  }
+
+  function saveProfileState() {
+    updateProfileFromRuntime();
+    try {
+      window.localStorage.setItem(
+        progressionState.profileStorageKey,
+        JSON.stringify(profileState.data)
+      );
+    } catch (_) {
+      // Ignore persistence errors.
+    }
+  }
+
+  function getLocalDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function hydrateDailyState() {
+    const now = new Date();
+    const todayKey = getLocalDateKey(now);
+    const seed = getDailyQuestSeed(now, "voyage");
+    dailyState.dateKey = todayKey;
+    dailyState.seed = seed;
+    dailyState.completedQuestIds = new Set();
+    try {
+      const parsed = safeParseJson(window.localStorage.getItem(dailyState.storageKey) || "{}", {});
+      if (parsed?.dateKey === todayKey && Array.isArray(parsed.completedQuestIds)) {
+        dailyState.completedQuestIds = new Set(parsed.completedQuestIds.map(String));
+      }
+      window.localStorage.setItem(
+        dailyState.storageKey,
+        JSON.stringify({
+          dateKey: todayKey,
+          seed,
+          completedQuestIds: [...dailyState.completedQuestIds]
+        })
+      );
+    } catch (_) {
+      // Ignore local storage failures.
+    }
+  }
+
+  function persistDailyState() {
+    try {
+      window.localStorage.setItem(
+        dailyState.storageKey,
+        JSON.stringify({
+          dateKey: dailyState.dateKey,
+          seed: dailyState.seed,
+          completedQuestIds: [...dailyState.completedQuestIds]
+        })
+      );
+    } catch (_) {
+      // Ignore local storage failures.
+    }
+  }
+
+  function hydrateChallengeHistory() {
+    challengeState.history = { received: [], sent: [] };
+    try {
+      const parsed = safeParseJson(
+        window.localStorage.getItem(challengeState.storageKey) || "{}",
+        {}
+      );
+      if (Array.isArray(parsed.received)) {
+        challengeState.history.received = parsed.received.slice(0, 20);
+      }
+      if (Array.isArray(parsed.sent)) {
+        challengeState.history.sent = parsed.sent.slice(0, 20);
+      }
+    } catch (_) {
+      // Ignore malformed history.
+    }
+  }
+
+  function persistChallengeHistory() {
+    try {
+      window.localStorage.setItem(
+        challengeState.storageKey,
+        JSON.stringify({
+          received: challengeState.history.received.slice(0, 20),
+          sent: challengeState.history.sent.slice(0, 20)
+        })
+      );
+    } catch (_) {
+      // Ignore local storage failures.
+    }
+  }
+
+  function recordChallengeHistory(direction, payload, outcome = "pending") {
+    if (!payload) {
+      return;
+    }
+    const bucket = direction === "sent" ? "sent" : "received";
+    challengeState.history[bucket].unshift({
+      at: Date.now(),
+      outcome,
+      seed: payload.seed,
+      targetScore: payload.targetScore,
+      runner: payload.runner,
+      level: payload.level,
+      chainDepth: payload.chainDepth || 0,
+      expiresAt: payload.expiresAt
+    });
+    challengeState.history[bucket] = challengeState.history[bucket].slice(0, 20);
+    persistChallengeHistory();
   }
 
   function saveMaxUnlockedLevel(levelId) {
@@ -853,42 +1157,249 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       return;
     }
     progressionState.maxUnlockedLevel = safeLevelId;
-    saveMaxUnlockedLevel(safeLevelId);
+    saveProgressionMeta();
     refreshStartLevelOptions();
   }
 
   function hydrateProgressionState() {
-    progressionState.maxUnlockedLevel = readMaxUnlockedLevel();
-    progressionState.selectedStartLevel = progressionState.maxUnlockedLevel;
+    let snapshot = {};
     try {
-      const storedBank = Number.parseInt(
-        window.localStorage.getItem(progressionState.bankStorageKey) || "0",
-        10
-      );
-      progressionState.coinBank = Number.isFinite(storedBank) ? Math.max(0, storedBank) : 0;
-      const storedUnlocks = JSON.parse(
-        window.localStorage.getItem(progressionState.unlockStorageKey) || "[]"
-      );
-      if (Array.isArray(storedUnlocks)) {
-        progressionState.unlockedCharacters = new Set(["bryan", ...storedUnlocks.filter(isValidCharacter)]);
-      }
+      snapshot = {
+        [progressionState.profileStorageKey]:
+          window.localStorage.getItem(progressionState.profileStorageKey),
+        [progressionState.storageKey]:
+          window.localStorage.getItem(progressionState.storageKey),
+        [progressionState.bankStorageKey]:
+          window.localStorage.getItem(progressionState.bankStorageKey),
+        [progressionState.unlockStorageKey]:
+          window.localStorage.getItem(progressionState.unlockStorageKey)
+      };
     } catch (_) {
-      progressionState.coinBank = 0;
-      progressionState.unlockedCharacters = new Set(["bryan"]);
+      snapshot = {};
+    }
+
+    const migrationResult = migrateProfileV2(snapshot);
+    profileState.data = migrationResult.profile;
+    progressionState.maxUnlockedLevel = normalizeLevelId(
+      profileState.data.progression?.maxUnlockedLevel,
+      readMaxUnlockedLevel()
+    );
+    progressionState.selectedStartLevel = progressionState.maxUnlockedLevel;
+    progressionState.coinBank = Math.max(0, Number.parseInt(profileState.data.progression?.coinBank || 0, 10) || 0);
+    const unlocked = Array.isArray(profileState.data.progression?.unlockedCharacters)
+      ? profileState.data.progression.unlockedCharacters.filter(isValidCharacter)
+      : ["bryan"];
+    progressionState.unlockedCharacters = new Set(["bryan", ...unlocked]);
+
+    world.activePerk = profileState.data.perks?.selected || "safe_landing";
+    if (!perkCatalog[world.activePerk]) {
+      world.activePerk = "safe_landing";
     }
     refreshStartLevelOptions();
+    saveProgressionMeta();
+    hydrateDailyState();
+    hydrateChallengeHistory();
   }
 
   function saveProgressionMeta() {
+    updateProfileFromRuntime();
+    profileState.data.perks = {
+      ...profileState.data.perks,
+      selected: world.activePerk
+    };
+    profileState.data.pass.level = getPassLevelFromXp(profileState.data.pass.xp || 0);
     try {
       window.localStorage.setItem(progressionState.bankStorageKey, String(progressionState.coinBank));
       window.localStorage.setItem(
         progressionState.unlockStorageKey,
         JSON.stringify([...progressionState.unlockedCharacters])
       );
+      window.localStorage.setItem(
+        progressionState.storageKey,
+        String(progressionState.maxUnlockedLevel)
+      );
+      window.localStorage.setItem(
+        progressionState.profileStorageKey,
+        JSON.stringify(profileState.data)
+      );
     } catch (_) {
       // Ignore local storage persistence errors.
     }
+  }
+
+  function getPerkOptions() {
+    const unlocked = new Set(profileState.data.perks?.unlocked || []);
+    return Object.values(perkCatalog).filter((perk) => unlocked.has(perk.id));
+  }
+
+  function updatePerkUi() {
+    if (!perkSelect || !perkDetails) {
+      return;
+    }
+    const options = getPerkOptions();
+    perkSelect.innerHTML = "";
+    options.forEach((perk) => {
+      const option = document.createElement("option");
+      option.value = perk.id;
+      option.textContent = perk.name;
+      perkSelect.appendChild(option);
+    });
+    if (!options.length) {
+      const fallback = document.createElement("option");
+      fallback.value = "safe_landing";
+      fallback.textContent = perkCatalog.safe_landing.name;
+      perkSelect.appendChild(fallback);
+      world.activePerk = "safe_landing";
+    }
+    if (!options.some((perk) => perk.id === world.activePerk)) {
+      world.activePerk = options[0]?.id || "safe_landing";
+    }
+    perkSelect.value = world.activePerk;
+    const perk = getActivePerkConfig();
+    perkDetails.textContent = `${perk.name}: ${perk.detail}`;
+  }
+
+  function toQuestTitle(template, target) {
+    return template.title.replace("{target}", String(target));
+  }
+
+  function buildQuestFromTemplate(template, seed, index, origin = "run") {
+    const questRng = hashSeed(`${seed}:${template.key}:${index}`);
+    const targetIndex = questRng % template.targets.length;
+    const target = template.targets[targetIndex];
+    return {
+      id: `${origin}:${template.key}:${target}:${index}`,
+      key: template.key,
+      metric: template.metric,
+      target,
+      rewardXp: template.rewardXp + (origin === "daily" ? 18 : 0),
+      rewardCoins: template.rewardCoins + (origin === "daily" ? 4 : 0),
+      title: toQuestTitle(template, target),
+      origin
+    };
+  }
+
+  function buildQuestSet(seed, count, origin = "run") {
+    const pool = [...voyageQuestTemplates];
+    const quests = [];
+    for (let index = 0; index < count && pool.length; index += 1) {
+      const pickIndex = hashSeed(`${seed}:${origin}:${index}`) % pool.length;
+      const [template] = pool.splice(pickIndex, 1);
+      quests.push(buildQuestFromTemplate(template, seed, index, origin));
+    }
+    return quests;
+  }
+
+  function getQuestMetricValue(metric) {
+    if (metric === "coinsCollected") {
+      return world.stats.coinsCollected;
+    }
+    if (metric === "longestCombo") {
+      return world.stats.longestCombo;
+    }
+    if (metric === "score") {
+      return world.score;
+    }
+    if (metric === "levelReached") {
+      return world.levelIndex + 1;
+    }
+    if (metric === "survivalSeconds") {
+      return Math.floor(world.elapsed);
+    }
+    return 0;
+  }
+
+  function getQuestProgressText(quest) {
+    const current = Math.min(quest.target, getQuestMetricValue(quest.metric));
+    return `${current}/${quest.target}`;
+  }
+
+  function updateMetaPanels() {
+    if (passStatus) {
+      const passXp = profileState.data.pass?.xp || 0;
+      const passLevel = getPassLevelFromXp(passXp);
+      const xpIntoLevel = passXp - (passLevel - 1) * config.passXpPerLevel;
+      const slots = profileState.data.pass?.unlockedPerkSlots || 1;
+      passStatus.textContent = `Cruise Pass Lv${passLevel} · XP ${xpIntoLevel}/${config.passXpPerLevel} · Perk Slots ${slots}`;
+    }
+    if (dailyQuestStatus) {
+      const total = questState.dailyQuests.length;
+      const completed = questState.dailyQuests.filter((quest) => dailyState.completedQuestIds.has(quest.id)).length;
+      dailyQuestStatus.textContent = total
+        ? `Daily Voyage Quests: ${completed}/${total} complete`
+        : "Daily Voyage Quests refresh each day.";
+    }
+    if (challengeBanner) {
+      if (challengeState.active) {
+        const payload = challengeState.active;
+        challengeBanner.textContent = `Active Challenge: beat ${payload.targetScore} on Level ${payload.level} as ${payload.runner}.`;
+      } else {
+        challengeBanner.textContent = "No active challenge link loaded.";
+      }
+    }
+  }
+
+  function grantPassRewards({ xp = 0, coins = 0, reason = "" } = {}) {
+    const safeXp = Math.max(0, Number.parseInt(xp, 10) || 0);
+    const safeCoins = Math.max(0, Number.parseInt(coins, 10) || 0);
+    const previousLevel = getPassLevelFromXp(profileState.data.pass?.xp || 0);
+    profileState.data.pass.xp = (profileState.data.pass?.xp || 0) + safeXp;
+    if (safeCoins > 0) {
+      progressionState.coinBank += safeCoins;
+    }
+    const nextLevel = getPassLevelFromXp(profileState.data.pass.xp || 0);
+    profileState.data.pass.unlockedPerkSlots = nextLevel >= 8 ? 3 : nextLevel >= 4 ? 2 : 1;
+    if (nextLevel > previousLevel) {
+      showMilestonePopup(`Cruise Pass up! Level ${nextLevel}`);
+    } else if (reason) {
+      showMilestonePopup(`${reason} +${safeXp} XP`);
+    }
+    saveProgressionMeta();
+    updateCharacterUi();
+    updateMetaPanels();
+  }
+
+  function buildRunQuests(seed) {
+    questState.runQuests = buildQuestSet(seed, config.runQuestCount, "run");
+    questState.completedRunQuestIds = new Set();
+    questState.comboShieldUsed = false;
+  }
+
+  function buildDailyQuests() {
+    questState.dailyQuests = buildQuestSet(dailyState.seed, 3, "daily");
+  }
+
+  function completeQuest(quest, completedSet) {
+    if (!quest || completedSet.has(quest.id)) {
+      return;
+    }
+    completedSet.add(quest.id);
+    world.stats.questsCompleted += 1;
+    grantPassRewards({
+      xp: quest.rewardXp,
+      coins: quest.rewardCoins,
+      reason: `${quest.origin === "daily" ? "Daily" : "Voyage"} quest clear`
+    });
+  }
+
+  function evaluateQuestProgress() {
+    questState.runQuests.forEach((quest) => {
+      if (questState.completedRunQuestIds.has(quest.id)) {
+        return;
+      }
+      if (getQuestMetricValue(quest.metric) >= quest.target) {
+        completeQuest(quest, questState.completedRunQuestIds);
+      }
+    });
+    questState.dailyQuests.forEach((quest) => {
+      if (dailyState.completedQuestIds.has(quest.id)) {
+        return;
+      }
+      if (getQuestMetricValue(quest.metric) >= quest.target) {
+        completeQuest(quest, dailyState.completedQuestIds);
+        persistDailyState();
+      }
+    });
   }
 
   function getRunnerHitboxHeight() {
@@ -1228,10 +1739,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     runner.isSliding = false;
     runner.slideTimer = 0;
     runner.slideCooldown = 0;
-    runner.coyoteTime = 0.1;
+    runner.coyoteTime = getBaseCoyoteWindow();
     runner.jumpBuffer = 0;
     runner.tilt = 0;
 
+    ensureSpawnDirectorAct();
     ensureGenerated();
   }
 
@@ -1259,6 +1771,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     world.stats.coinsCollected = 0;
     world.stats.combosTriggered = 0;
     world.stats.longestCombo = 0;
+    world.stats.questsCompleted = 0;
+    world.stats.rescueTokensUsed = 0;
     updateLevelProgression({ announce: false });
     updateHud();
   }
@@ -1460,6 +1974,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     world.stats.coinsCollected = 0;
     world.stats.combosTriggered = 0;
     world.stats.longestCombo = 0;
+    world.stats.questsCompleted = 0;
+    world.stats.rescueTokensUsed = 0;
     world.walls.length = 0;
     world.obstacles.length = 0;
     world.collectibles.length = 0;
@@ -1481,6 +1997,13 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     world.casino.pendingPull = false;
     world.casino.pendingResume = false;
     world.casino.levelRestartQueued = false;
+    world.rescueTokens = 0;
+    world.spawnDirector.activeAct = 1;
+    world.spawnDirector.deck = [];
+    world.spawnDirector.cursor = 0;
+    world.spawnDirector.nextRiskGateAt = config.riskGateIntervalSeconds;
+    world.spawnDirector.gateIndex = 0;
+    world.spawnDirector.actAnnouncementShown = false;
     world.invulnerableTime = 0;
 
     runner.y = world.groundY - runner.height;
@@ -1491,7 +2014,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     runner.slideTimer = 0;
     runner.slideCooldown = 0;
     runner.jumpHeld = false;
-    runner.coyoteTime = 0;
+    runner.coyoteTime = getBaseCoyoteWindow();
     runner.jumpBuffer = 0;
     runner.tilt = 0;
 
@@ -1542,7 +2065,37 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   function buildShareUrl(score) {
     const url = new URL(window.location.href);
     url.searchParams.set("score", String(score));
+    url.searchParams.set("runner", currentCharacter);
     url.searchParams.set("character", currentCharacter);
+    url.searchParams.delete("challenge");
+    return url.toString();
+  }
+
+  function buildChallengePayload(targetScore, options = {}) {
+    const createdAt = Number.isFinite(options.createdAt) ? options.createdAt : Date.now();
+    const expiresAt = Number.isFinite(options.expiresAt)
+      ? options.expiresAt
+      : createdAt + config.challengeDefaultHours * 60 * 60 * 1000;
+    const previousChainDepth = challengeState.active?.chainDepth || 0;
+    return {
+      version: CHALLENGE_CURRENT_VERSION,
+      seed: Number.isFinite(options.seed) ? options.seed : world.runSeed || hashSeed(`${createdAt}:${targetScore}`),
+      targetScore: Math.max(0, Math.floor(targetScore)),
+      runner: options.runner || currentCharacter,
+      level: normalizeLevelId(options.level || getSelectedStartLevelId(), 1),
+      createdAt,
+      expiresAt,
+      chainDepth: Number.isFinite(options.chainDepth) ? options.chainDepth : previousChainDepth + 1
+    };
+  }
+
+  function buildChallengeUrl(payload) {
+    const encoded = encodeChallengePayload(payload);
+    const url = new URL(window.location.href);
+    url.searchParams.set("challenge", encoded);
+    url.searchParams.set("runner", payload.runner || currentCharacter);
+    url.searchParams.set("character", payload.runner || currentCharacter);
+    url.searchParams.delete("score");
     return url.toString();
   }
 
@@ -1573,6 +2126,48 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
   }
 
+  function clearActiveChallenge(options = {}) {
+    const { stripUrl = true } = options;
+    challengeState.active = null;
+    if (stripUrl) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("challenge")) {
+        url.searchParams.delete("challenge");
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
+    updateMetaPanels();
+  }
+
+  function parseChallengeFromUrl() {
+    const url = new URL(window.location.href);
+    const encoded = url.searchParams.get("challenge");
+    if (!encoded) {
+      clearActiveChallenge({ stripUrl: false });
+      return;
+    }
+    const decoded = decodeChallengePayload(encoded, {
+      supportedVersions: [CHALLENGE_CURRENT_VERSION]
+    });
+    if (!decoded.ok || !decoded.payload) {
+      clearActiveChallenge({ stripUrl: true });
+      if (decoded.error === "expired") {
+        showMilestonePopup("Challenge expired. Generating a fresh run.");
+      }
+      return;
+    }
+    challengeState.active = decoded.payload;
+    if (isValidCharacter(challengeState.active.runner)) {
+      currentCharacter = challengeState.active.runner;
+      progressionState.unlockedCharacters.add(challengeState.active.runner);
+    }
+    unlockLevel(challengeState.active.level);
+    progressionState.selectedStartLevel = normalizeLevelId(challengeState.active.level, 1);
+    refreshStartLevelOptions();
+    recordChallengeHistory("received", challengeState.active, "loaded");
+    updateMetaPanels();
+  }
+
   async function buildShareImageFile() {
     const preset = getActivePreset();
     try {
@@ -1593,13 +2188,21 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     shareLink.classList.add("hidden");
     shareLink.removeAttribute("href");
     shareLink.dataset.score = "";
+    shareLink.dataset.mode = "";
+    shareLink.dataset.target = "";
   }
 
-  function showShareLink(score) {
-    const shareUrl = buildShareUrl(score);
+  function showShareLink({ score = 0, mode = "score", url = "", target = null }) {
+    const safeMode = mode === "challenge" ? "challenge" : "score";
+    const shareUrl = url || (safeMode === "challenge" ? buildChallengeUrl(buildChallengePayload(score)) : buildShareUrl(score));
     shareLink.href = shareUrl;
     shareLink.dataset.score = String(score);
-    shareLink.textContent = `Share Score: ${score}`;
+    shareLink.dataset.mode = safeMode;
+    shareLink.dataset.target = Number.isFinite(target) ? String(target) : "";
+    shareLink.textContent =
+      safeMode === "challenge"
+        ? `Send Challenge: Beat ${score}`
+        : `Share Score: ${score}`;
     shareLink.classList.remove("hidden");
   }
 
@@ -1607,25 +2210,41 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     if (shareLink.classList.contains("hidden")) {
       return;
     }
+    const mode = shareLink.dataset.mode || "score";
     const score = Number.parseInt(shareLink.dataset.score || "", 10);
     if (!Number.isFinite(score)) {
+      return;
+    }
+    if (mode === "challenge") {
+      const target = Number.parseInt(shareLink.dataset.target || "", 10);
+      const payload = buildChallengePayload(score, {
+        runner: currentCharacter,
+        level: getSelectedStartLevelId(),
+        chainDepth: Number.isFinite(challengeState.active?.chainDepth) ? challengeState.active.chainDepth + 1 : 1
+      });
+      if (Number.isFinite(target)) {
+        payload.targetScore = target;
+      }
+      shareLink.href = buildChallengeUrl(payload);
       return;
     }
     shareLink.href = buildShareUrl(score);
   }
 
-  function showOverlay(title, subtitle, buttonText, shareScore = null, options = {}) {
-    const { layout = "compact" } = options;
+  function showOverlay(title, subtitle, buttonText, shareData = null, options = {}) {
+    const { layout = "compact", preserveStats = false } = options;
     titleEl.textContent = title;
     subtitleEl.textContent = subtitle;
     actionButton.textContent = buttonText;
     overlay.dataset.layout = layout;
-    if (Number.isFinite(shareScore)) {
-      showShareLink(shareScore);
+    if (Number.isFinite(shareData)) {
+      showShareLink({ score: shareData, mode: "score" });
+    } else if (shareData && typeof shareData === "object") {
+      showShareLink(shareData);
     } else {
       hideShareLink();
     }
-    if (!Number.isFinite(shareScore)) {
+    if (!preserveStats && !Number.isFinite(shareData) && !(shareData && typeof shareData === "object")) {
       runStats.classList.add("hidden");
       runStats.innerHTML = "";
     }
@@ -1670,10 +2289,16 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   function showMainMenu() {
     stopMusicLoop();
     resetWorld();
-    applyStartingLevel(getSelectedStartLevelId());
+    applyStartingLevel(challengeState.active ? challengeState.active.level : getSelectedStartLevelId());
     world.mode = "ready";
     setMenuScreen("main");
-    showOverlay(mainMenuCopy.title, mainMenuCopy.subtitle, "Start Run", null, { layout: "start" });
+    buildDailyQuests();
+    updatePerkUi();
+    updateMetaPanels();
+    const subtitle = challengeState.active
+      ? `Challenge loaded: beat ${challengeState.active.targetScore} with ${challengeState.active.runner} on Level ${challengeState.active.level}.`
+      : mainMenuCopy.subtitle;
+    showOverlay(mainMenuCopy.title, subtitle, "Start Run", null, { layout: "start" });
   }
 
   function showSplashScreen() {
@@ -1694,10 +2319,52 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
   function startRun() {
     startMusicLoop();
+    const selectedPerk = String(perkSelect?.value || world.activePerk || "safe_landing");
+    if (perkCatalog[selectedPerk]) {
+      world.activePerk = selectedPerk;
+    }
+    const selectedStartLevel = getSelectedStartLevelId();
+    let runChallenge = challengeState.active;
+    if (runChallenge) {
+      const challengeLevel = normalizeLevelId(runChallenge.level, selectedStartLevel);
+      const challengeRunner = isValidCharacter(runChallenge.runner) ? runChallenge.runner : currentCharacter;
+      if (selectedStartLevel !== challengeLevel || currentCharacter !== challengeRunner) {
+        clearActiveChallenge({ stripUrl: true });
+        runChallenge = null;
+      }
+    }
+    if (runChallenge && isValidCharacter(runChallenge.runner)) {
+      currentCharacter = runChallenge.runner;
+    }
+    const startLevelId = runChallenge
+      ? normalizeLevelId(runChallenge.level, selectedStartLevel)
+      : selectedStartLevel;
+    const seededRun = runChallenge
+      ? Number.parseInt(runChallenge.seed, 10)
+      : hashSeed(`${Date.now()}-${currentCharacter}-${startLevelId}`);
+    setRunSeed(seededRun);
+    world.runStartLevel = startLevelId;
+    world.challenge.active = Boolean(runChallenge);
+    world.challenge.targetScore = runChallenge?.targetScore || 0;
+    world.challenge.seed = runChallenge?.seed || seededRun;
+    world.challenge.chainDepth = runChallenge?.chainDepth || 0;
+    world.challenge.beaten = false;
+    world.spawnDirector.nextRiskGateAt = config.riskGateIntervalSeconds;
+    world.spawnDirector.gateIndex = 0;
+    world.spawnDirector.actAnnouncementShown = false;
+    world.rescueTokens = 0;
+    questState.comboShieldUsed = false;
+    buildRunQuests(seededRun);
+    buildDailyQuests();
+
     resetWorld();
-    applyStartingLevel(getSelectedStartLevelId());
+    world.spawnDirector.activeAct = 1;
+    world.spawnDirector.deck = buildPatternDeck(world.runSeed, 1);
+    world.spawnDirector.cursor = 0;
+    applyStartingLevel(startLevelId);
     world.mode = "running";
     hideOverlay();
+    updateHud();
   }
 
   function resumeRunFromCasino() {
@@ -1728,26 +2395,129 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       ? ` Achievements: ${earnedAchievements.join(", ")}.`
       : "";
     progressionState.coinBank += world.coins;
+    const runBaseXp = Math.max(12, world.score * 2 + world.stats.coinsCollected);
+    grantPassRewards({ xp: runBaseXp, coins: 0, reason: "Run complete" });
+
+    const priorBest = Number.parseInt(profileState.data.personalBests?.overall || 0, 10) || 0;
+    const isPersonalBest = world.score > priorBest;
+    if (isPersonalBest) {
+      profileState.data.personalBests.overall = world.score;
+      profileState.data.personalBests.byRunner = {
+        ...profileState.data.personalBests.byRunner,
+        [currentCharacter]: Math.max(
+          world.score,
+          Number.parseInt(profileState.data.personalBests.byRunner?.[currentCharacter] || 0, 10) || 0
+        )
+      };
+    }
+
+    const clearedDestinations = new Set(profileState.data.progression?.clearedDestinations || []);
+    const firstDestinationClear = !clearedDestinations.has(level.id);
+    if (firstDestinationClear) {
+      clearedDestinations.add(level.id);
+      profileState.data.progression.clearedDestinations = [...clearedDestinations];
+    }
+
+    let challengeOutcomeText = "No challenge active.";
+    let challengeShareData = null;
+    let challengeBeaten = false;
+    if (world.challenge.active && challengeState.active) {
+      challengeBeaten = world.score > challengeState.active.targetScore;
+      world.challenge.beaten = challengeBeaten;
+      challengeOutcomeText = challengeBeaten
+        ? `Challenge beaten: ${world.score} > ${challengeState.active.targetScore}.`
+        : `Challenge missed: ${world.score} / ${challengeState.active.targetScore}.`;
+      recordChallengeHistory(
+        "received",
+        challengeState.active,
+        challengeBeaten ? "beaten" : "missed"
+      );
+      if (challengeBeaten) {
+        const rematchPayload = buildChallengePayload(world.score, {
+          seed: hashSeed(`${world.runSeed}:${Date.now()}:${world.score}`),
+          level: level.id,
+          runner: currentCharacter,
+          chainDepth: (challengeState.active.chainDepth || 0) + 1
+        });
+        const rematchUrl = buildChallengeUrl(rematchPayload);
+        challengeShareData = {
+          mode: "challenge",
+          score: world.score,
+          target: rematchPayload.targetScore,
+          url: rematchUrl
+        };
+        recordChallengeHistory("sent", rematchPayload, "rematch");
+      }
+      clearActiveChallenge({ stripUrl: true });
+    }
+
+    const challengeCardPayload = buildChallengePayload(world.score, {
+      level: level.id,
+      runner: currentCharacter,
+      chainDepth: world.challenge.chainDepth + 1
+    });
+    const challengeCardUrl = buildChallengeUrl(challengeCardPayload);
+    recordChallengeHistory("sent", challengeCardPayload, "created");
+
     saveProgressionMeta();
+    updateMetaPanels();
     const achievementProgress = achievements
       .map((entry) => `${entry.label}: ${Math.min(100, Math.round((world.score / entry.score) * 100))}%`)
       .join(" | ");
+    const runQuestLines = questState.runQuests
+      .map((quest) => {
+        const done = questState.completedRunQuestIds.has(quest.id);
+        return `${done ? "✓" : "•"} ${quest.title} (${getQuestProgressText(quest)})`;
+      })
+      .join("<br>");
+    const dailyQuestLines = questState.dailyQuests
+      .map((quest) => {
+        const done = dailyState.completedQuestIds.has(quest.id);
+        return `${done ? "✓" : "•"} ${quest.title} (${getQuestProgressText(quest)})`;
+      })
+      .join("<br>");
     runStats.innerHTML = `
       <h3>Run Statistics</h3>
       <p>Coins this run: ${world.coins} (Bank: ${progressionState.coinBank})</p>
       <p>Combos triggered: ${world.stats.combosTriggered} · Longest streak: ${world.stats.longestCombo}</p>
+      <p>Rescue tokens used: ${world.stats.rescueTokensUsed} · Quests completed this run: ${world.stats.questsCompleted}</p>
       <p>Achievement progress: ${achievementProgress}</p>
+      <p>Voyage Quests:<br>${runQuestLines || "No run quests tracked."}</p>
+      <p>Daily Quests:<br>${dailyQuestLines || "No daily quests tracked."}</p>
+      <p>Challenge: ${challengeOutcomeText}</p>
+      <p>Beat Me Link: <a href="${challengeCardUrl}" target="_blank" rel="noopener">Send challenge</a></p>
     `;
     runStats.classList.remove("hidden");
     world.mode = "gameOver";
     if (world.score >= achievements[0].score) {
       burstCelebration({ particleCount: 120, spread: 108, originY: 0.52 });
     }
+    const shareReasons = [];
+    if (isPersonalBest) {
+      shareReasons.push("personal best");
+    }
+    if (firstDestinationClear) {
+      shareReasons.push("first destination clear");
+    }
+    if (challengeBeaten) {
+      shareReasons.push("friend challenge win");
+    }
+    const sharePrompt = challengeShareData ||
+      (shareReasons.length
+        ? {
+          mode: "challenge",
+          score: world.score,
+          target: challengeCardPayload.targetScore,
+          url: challengeCardUrl
+        }
+        : null);
+
     showOverlay(
       "Run Over",
-      `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. ${nextDestinationHint}${achievementText}`,
+      `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. ${nextDestinationHint}${achievementText}${shareReasons.length ? ` Share unlocked (${shareReasons.join(", ")}).` : ""}`,
       "Quick Restart",
-      world.score
+      sharePrompt,
+      { preserveStats: true }
     );
   }
 
@@ -1787,13 +2557,15 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     runner.canDoubleJump = true;
     runner.isSliding = false;
     runner.slideTimer = 0;
-    runner.coyoteTime = 0.08;
+    runner.coyoteTime = getBaseCoyoteWindow();
     runner.jumpBuffer = 0;
     world.mode = "running";
   }
 
   function updateRescue(dt) {
     world.elapsed += dt;
+    evaluateQuestProgress();
+    updateHud();
     if (!world.rescue.active) {
       return;
     }
@@ -1824,9 +2596,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   }
 
   function maybeTriggerRescue(cause, collisionData = null) {
-    if (Math.random() > config.rescueChance) {
+    if (world.rescueTokens <= 0) {
       return false;
     }
+    world.rescueTokens = Math.max(0, world.rescueTokens - 1);
+    world.stats.rescueTokensUsed += 1;
     if (cause === "wall") {
       clearCollidingWall(collisionData);
     } else if (cause === "slide") {
@@ -1836,6 +2610,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     runner.onGround = true;
     runner.coyoteTime = 0;
     world.mode = "rescue";
+    showMilestonePopup("Rescue Token used!");
+    updateHud();
     setupRescueDoctor();
     return true;
   }
@@ -1958,38 +2734,160 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     return Math.round((config.wallHeight - 14) + 20 * getDifficulty());
   }
 
-  function maybeSpawnExtraObstacle(x) {
-    if (Math.random() > 0.45) {
-      return;
+  function getRunAct() {
+    if (world.elapsed < config.actOneDuration) {
+      return 1;
     }
-    const variantRoll = Math.random();
-    if (variantRoll < 0.34) {
+    if (world.elapsed < config.actTwoDuration) {
+      return 2;
+    }
+    return 3;
+  }
+
+  function getActLabel(act) {
+    if (act === 1) {
+      return "Act 1: Warm-up";
+    }
+    if (act === 2) {
+      return "Act 2: Pressure Build";
+    }
+    return "Final Sprint!";
+  }
+
+  function setSpawnDirectorAct(nextAct) {
+    const act = Math.max(1, Math.min(3, nextAct));
+    world.spawnDirector.activeAct = act;
+    world.spawnDirector.deck = buildPatternDeck(world.runSeed, act);
+    world.spawnDirector.cursor = 0;
+    if (world.mode === "running") {
+      showMilestonePopup(getActLabel(act));
+      if (act === 3) {
+        world.levelAnnouncement.text = "Final Sprint";
+        world.levelAnnouncement.timer = config.levelAnnouncementDuration;
+      }
+    }
+  }
+
+  function ensureSpawnDirectorAct() {
+    const activeAct = getRunAct();
+    if (activeAct !== world.spawnDirector.activeAct || !world.spawnDirector.deck.length) {
+      setSpawnDirectorAct(activeAct);
+    }
+  }
+
+  function getNextSpawnPattern() {
+    ensureSpawnDirectorAct();
+    const deck = world.spawnDirector.deck;
+    if (!deck.length) {
+      return {
+        id: "runtime-fallback",
+        act: getRunAct(),
+        difficulty: "medium",
+        gapScale: 1,
+        wallHeightScale: 1,
+        extraObstacle: "none",
+        riskGateBias: 0.6
+      };
+    }
+    const pattern = deck[world.spawnDirector.cursor % deck.length];
+    world.spawnDirector.cursor += 1;
+    if (!pattern || typeof pattern !== "object") {
+      return {
+        id: "runtime-fallback",
+        act: getRunAct(),
+        difficulty: "medium",
+        gapScale: 1,
+        wallHeightScale: 1,
+        extraObstacle: "none",
+        riskGateBias: 0.6
+      };
+    }
+    return pattern;
+  }
+
+  function pushObstacle(type, x) {
+    if (type === "beachBall") {
       world.obstacles.push({
         type: "beachBall",
-        x: x + randomBetween(90, 180),
+        x: x + randomBetween(90, 180, runRandom),
         y: world.groundY - 34,
         width: 34,
         height: 34
       });
       return;
     }
-    if (variantRoll < 0.67) {
+    if (type === "surfboard") {
       world.obstacles.push({
         type: "surfboard",
-        x: x + randomBetween(120, 220),
+        x: x + randomBetween(120, 220, runRandom),
         y: world.groundY - 30,
         width: 88,
         height: 30
       });
       return;
     }
-    world.obstacles.push({
-      type: "lowBar",
-      x: x + randomBetween(140, 220),
-      y: world.groundY - 110,
-      width: 120,
-      height: 18
+    if (type === "lowBar") {
+      world.obstacles.push({
+        type: "lowBar",
+        x: x + randomBetween(140, 220, runRandom),
+        y: world.groundY - 110,
+        width: 120,
+        height: 18
+      });
+    }
+  }
+
+  function maybeSpawnExtraObstacle(x, forcedType = null) {
+    if (forcedType && forcedType !== "none") {
+      pushObstacle(forcedType, x);
+      return;
+    }
+    if (runRandom() > 0.45) {
+      return;
+    }
+    const variantRoll = runRandom();
+    if (variantRoll < 0.34) {
+      pushObstacle("beachBall", x);
+      return;
+    }
+    if (variantRoll < 0.67) {
+      pushObstacle("surfboard", x);
+      return;
+    }
+    pushObstacle("lowBar", x);
+  }
+
+  function spawnRiskGate(baseX, wallHeight, pattern) {
+    if (world.elapsed + 0.5 < world.spawnDirector.nextRiskGateAt) {
+      return;
+    }
+    const gateId = `gate-${world.spawnDirector.gateIndex++}`;
+    const riskBias = pattern?.riskGateBias || 0.6;
+    const safeX = baseX + config.wallWidth * 0.3;
+    const riskyX = baseX + config.wallWidth * (0.64 + riskBias * 0.25);
+    world.collectibles.push({
+      x: safeX,
+      y: world.groundY - Math.max(84, wallHeight + 36),
+      radius: 11,
+      width: config.collectibleW * 0.75,
+      height: config.collectibleH * 0.75,
+      phase: runRandom() * Math.PI * 2,
+      type: "riskSafe",
+      gateId,
+      taken: false
     });
+    world.collectibles.push({
+      x: riskyX,
+      y: world.groundY - Math.max(132, wallHeight + 92),
+      radius: 12,
+      width: config.collectibleW * 0.85,
+      height: config.collectibleH * 0.85,
+      phase: runRandom() * Math.PI * 2,
+      type: "riskRisky",
+      gateId,
+      taken: false
+    });
+    world.spawnDirector.nextRiskGateAt += config.riskGateIntervalSeconds;
   }
   function activateSlideObstacle() {
     const slideHeight = config.slideHeight;
@@ -2044,6 +2942,65 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     return levelId === 1 || levelId === 4;
   }
 
+  function consumeRiskGate(gateId, consumedItem) {
+    for (const item of world.collectibles) {
+      if (item.gateId === gateId && item !== consumedItem) {
+        item.taken = true;
+      }
+    }
+  }
+
+  function maybeGrantRescueTokenFromCombo() {
+    if (
+      world.combo.count > 0 &&
+      world.combo.count % config.rescueTokenComboMilestone === 0 &&
+      world.rescueTokens < 1
+    ) {
+      world.rescueTokens = 1;
+      showMilestonePopup("Rescue Token earned!");
+    }
+  }
+
+  function applyPickupReward({
+    comboIncrement = 1,
+    pointBonus = 0,
+    coinBonus = 1,
+    setComboWindow = true,
+    showComboPopup = true
+  } = {}) {
+    world.combo.count += comboIncrement;
+    world.stats.longestCombo = Math.max(world.stats.longestCombo, world.combo.count);
+    playCollectSfx();
+    if (setComboWindow) {
+      world.combo.timer = config.comboWindowSeconds;
+    }
+    const comboTier = Math.floor(world.combo.count / config.comboStep);
+    world.combo.multiplier = Math.min(
+      config.maxComboMultiplier,
+      1 + comboTier * 0.5
+    );
+    const comboPoints = Math.max(1, Math.round(world.combo.multiplier));
+    world.score += comboPoints + pointBonus;
+    world.coins += coinBonus;
+    world.stats.coinsCollected += coinBonus;
+    world.speed = Math.min(config.maxSpeed, world.speed + getProgressiveSpeedGain());
+    maybeGrantRescueTokenFromCombo();
+
+    if (world.score > 0 && world.score % config.checkpointInterval === 0) {
+      showMilestonePopup(`Checkpoint reached: ${world.score} points!`);
+    }
+    if (
+      comboTier > 0 &&
+      world.combo.count % (config.comboStep * config.speedBoostEveryCombos) === 0
+    ) {
+      world.stats.combosTriggered += 1;
+      world.speedBoostTimer = config.speedBoostDuration;
+      if (showComboPopup) {
+        showMilestonePopup(`Combo chain x${world.combo.multiplier.toFixed(1)}!`);
+      }
+    }
+  }
+
   function collectItems(runnerCenterX, runnerCenterY) {
     for (const item of world.collectibles) {
       if (item.taken) {
@@ -2059,33 +3016,21 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
           triggerCasinoBonus();
           return;
         }
-        world.combo.count += 1;
-        world.stats.longestCombo = Math.max(world.stats.longestCombo, world.combo.count);
-        playCollectSfx();
-        world.combo.timer = config.comboWindowSeconds;
-        const comboTier = Math.floor(world.combo.count / config.comboStep);
-        world.combo.multiplier = Math.min(
-          config.maxComboMultiplier,
-          1 + comboTier * 0.5
-        );
-        const points = Math.max(1, Math.round(world.combo.multiplier));
-        world.score += points;
-        world.coins += 1;
-        world.stats.coinsCollected += 1;
-        world.speed = Math.min(config.maxSpeed, world.speed + getProgressiveSpeedGain());
-        if (world.score > 0 && world.score % config.checkpointInterval === 0) {
-          showMilestonePopup(`Checkpoint reached: ${world.score} points!`);
-        }
-        if (
-          comboTier > 0 &&
-          world.combo.count % (config.comboStep * config.speedBoostEveryCombos) === 0
-        ) {
-          world.stats.combosTriggered += 1;
-          world.speedBoostTimer = config.speedBoostDuration;
-          showMilestonePopup(`Combo chain x${world.combo.multiplier.toFixed(1)}!`);
+        if (item.type === "riskSafe" || item.type === "riskRisky") {
+          consumeRiskGate(item.gateId, item);
+          applyPickupReward({
+            comboIncrement: item.type === "riskRisky" ? 2 : 1,
+            pointBonus: item.type === "riskRisky" ? 2 : 0,
+            coinBonus: item.type === "riskRisky" ? 2 : 1,
+            showComboPopup: item.type !== "riskSafe"
+          });
+          showMilestonePopup(item.type === "riskRisky" ? "Risk line cleared! Bonus reward." : "Safe line banked.");
+        } else {
+          applyPickupReward();
         }
         updateLevelProgression();
         updateCheckpoint();
+        evaluateQuestProgress();
         updateHud();
       }
     }
@@ -2105,9 +3050,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   function evaluateSlotPull() {
     const symbols = ["🍒", "🍋", "⭐", "7️⃣", "💎"];
     const roll = [
-      symbols[Math.floor(Math.random() * symbols.length)],
-      symbols[Math.floor(Math.random() * symbols.length)],
-      symbols[Math.floor(Math.random() * symbols.length)]
+      symbols[Math.floor(runRandom() * symbols.length)],
+      symbols[Math.floor(runRandom() * symbols.length)],
+      symbols[Math.floor(runRandom() * symbols.length)]
     ];
     const counts = roll.reduce((memo, symbol) => {
       memo[symbol] = (memo[symbol] || 0) + 1;
@@ -2147,41 +3092,55 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
   function spawnWall(x) {
     const preset = getActivePreset();
+    const pattern = getNextSpawnPattern();
     const width = config.wallWidth;
-    const height = getWallHeight();
-    world.walls.push({ x, width, height });
+    const heightScale = pattern?.wallHeightScale || 1;
+    const height = Math.round(getWallHeight() * heightScale);
+    world.walls.push({ x, width, height, patternId: pattern?.id || "default" });
+    const liftMin = config.collectibleLiftMin + (pattern?.act === 1 ? -8 : 0);
+    const liftMax = config.collectibleLiftMax + (pattern?.act === 3 ? 18 : 0);
     world.collectibles.push({
       x: x + width * 0.5 + config.collectibleXOffset,
       y:
         world.groundY -
         height -
-        randomBetween(config.collectibleLiftMin, config.collectibleLiftMax),
+        randomBetween(liftMin, liftMax, runRandom),
       radius: 10,
       width: config.collectibleW,
       height: config.collectibleH,
-      phase: Math.random() * Math.PI * 2,
+      phase: runRandom() * Math.PI * 2,
       type: "drink",
       label: preset.collectibleName,
       taken: false
     });
-    if (isCasinoBonusLevel() && Math.random() < config.bonusSpawnChance) {
+    if (isCasinoBonusLevel() && runRandom() < getBonusSpawnChance()) {
       world.collectibles.push({
         x: x + width * 0.5 - 24,
         y:
           world.groundY -
           height -
-          randomBetween(config.collectibleLiftMin + 48, config.collectibleLiftMax + 68),
+          randomBetween(config.collectibleLiftMin + 48, config.collectibleLiftMax + 68, runRandom),
         radius: 16,
         width: 34,
         height: 34,
-        phase: Math.random() * Math.PI * 2,
+        phase: runRandom() * Math.PI * 2,
         type: "bonus",
         taken: false
       });
     }
-    maybeSpawnExtraObstacle(x);
+    maybeSpawnExtraObstacle(x, pattern?.extraObstacle || null);
+    spawnRiskGate(x + width, height, pattern);
     const gapRange = getSpawnGapRange();
-    world.nextSpawnX = x + width + randomBetween(gapRange.min, gapRange.max);
+    let gapScale = pattern?.gapScale || 1;
+    if (pattern?.act === 3) {
+      const burstCycle = Math.floor(world.elapsed / 9) % 2;
+      if (burstCycle === 0) {
+        gapScale *= 0.9;
+      }
+    }
+    const minGap = Math.max(120, gapRange.min * gapScale);
+    const maxGap = Math.max(minGap + 40, gapRange.max * gapScale);
+    world.nextSpawnX = x + width + randomBetween(minGap, maxGap, runRandom);
   }
 
   function ensureGenerated() {
@@ -2237,10 +3196,13 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     nextLevelValue.textContent =
       pointsToNext === null ? "Final destination reached" : `${pointsToNext} pts to L${level.id + 1}`;
     livesValue.textContent = String(Math.max(0, world.lives));
+    if (rescueValue) {
+      rescueValue.textContent = String(world.rescueTokens);
+    }
     comboValue.textContent = `x${world.combo.multiplier.toFixed(1)}`;
     coinValue.textContent = String(world.coins);
     const speedBoostText = world.speedBoostTimer > 0 ? " Speed boost active." : "";
-    const hudNarration = `Score ${world.score}. Coins ${world.coins}. Level ${level.id}. Lives ${world.lives}. Combo multiplier ${world.combo.multiplier.toFixed(1)}.${speedBoostText}`;
+    const hudNarration = `Score ${world.score}. Coins ${world.coins}. Level ${level.id}. Lives ${world.lives}. Rescue tokens ${world.rescueTokens}. Combo multiplier ${world.combo.multiplier.toFixed(1)}.${speedBoostText}`;
     document.querySelector(".hud")?.setAttribute("aria-label", hudNarration);
   }
 
@@ -2261,8 +3223,16 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     if (world.combo.timer > 0) {
       world.combo.timer = Math.max(0, world.combo.timer - scaledDt);
       if (world.combo.timer <= 0) {
-        world.combo.count = 0;
-        world.combo.multiplier = 1;
+        const comboShieldActive =
+          getActivePerkConfig().comboShield && !questState.comboShieldUsed && world.combo.count > 0;
+        if (comboShieldActive) {
+          questState.comboShieldUsed = true;
+          world.combo.timer = 1.1;
+          showMilestonePopup("Combo Shield saved your streak!");
+        } else {
+          world.combo.count = 0;
+          world.combo.multiplier = 1;
+        }
       }
     }
     if (world.invulnerableTime > 0) {
@@ -2288,6 +3258,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       runner.isSliding = false;
     }
     attemptJump();
+    ensureSpawnDirectorAct();
 
     runner.vy += config.gravity * scaledDt;
     runner.y += runner.vy * scaledDt;
@@ -2300,10 +3271,10 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       runner.vy = 0;
       runner.onGround = true;
       runner.canDoubleJump = true;
-      runner.coyoteTime = 0.1;
+      runner.coyoteTime = getBaseCoyoteWindow();
     } else {
       if (runner.onGround) {
-        runner.coyoteTime = 0.1;
+        runner.coyoteTime = getBaseCoyoteWindow();
       }
       runner.onGround = false;
     }
@@ -2354,6 +3325,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
     ensureGenerated();
     pruneWorld();
+    evaluateQuestProgress();
     updateHud();
 
   }
@@ -2670,12 +3642,26 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       const drawW = item.width || config.collectibleW;
       const drawH = item.height || config.collectibleH;
       const isBonus = item.type === "bonus";
+      const isRisk = item.type === "riskSafe" || item.type === "riskRisky";
       ctx.fillStyle = isBonus ? "rgba(255, 210, 79, 0.4)" : "rgba(255, 225, 122, 0.33)";
       ctx.beginPath();
       ctx.arc(x, y + 2, item.radius + 11, 0, Math.PI * 2);
       ctx.fill();
 
-      if (!isBonus && activeAssets.collectible.ready) {
+      if (isRisk) {
+        ctx.fillStyle = item.type === "riskRisky" ? "#ff9c58" : "#8ce2ff";
+        ctx.beginPath();
+        ctx.arc(x, y, item.radius + 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = item.type === "riskRisky" ? "#7a2e12" : "#1b4b5e";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#10213a";
+        ctx.font = `700 12px ${uiPixelFont}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(item.type === "riskRisky" ? "R" : "S", x, y + 1);
+      } else if (!isBonus && activeAssets.collectible.ready) {
         ctx.drawImage(
           activeAssets.collectible.image,
           x - drawW * 0.5,
@@ -3093,9 +4079,14 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       event.preventDefault();
       const score = Number.parseInt(shareLink.dataset.score || "0", 10) || 0;
       const preset = getActivePreset();
+      const shareMode = shareLink.dataset.mode || "score";
+      const targetScore = Number.parseInt(shareLink.dataset.target || "0", 10) || score;
+      const shareText = shareMode === "challenge"
+        ? `I just posted a cruise challenge as ${preset.name}. Beat ${targetScore} and send me a rematch.`
+        : `I scored ${score} with ${preset.name} on Bonkers Cruise Dash.`;
       const shareData = {
         title: `${preset.name}'s Bonkers Cruise Dash`,
-        text: `I scored ${score} with ${preset.name} on Bonkers Cruise Dash.`,
+        text: shareText,
         url: shareLink.href
       };
       const shareFile = await buildShareImageFile();
@@ -3152,6 +4143,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         updateCharacterUi();
         return;
       }
+      const challengeRunner = challengeState.active?.runner || "";
+      if (challengeState.active && selected !== challengeRunner) {
+        clearActiveChallenge({ stripUrl: true });
+        subtitleEl.textContent = mainMenuCopy.subtitle;
+      }
       currentCharacter = selected;
       updateCharacterUi();
       if (world.mode !== "running" && world.mode !== "casino") {
@@ -3159,12 +4155,28 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       }
     });
     startLevelSelect.addEventListener("change", (event) => {
-      progressionState.selectedStartLevel = normalizeLevelId(event.target.value, 1);
+      const selectedLevel = normalizeLevelId(event.target.value, 1);
+      progressionState.selectedStartLevel = selectedLevel;
+      const challengeLevel = normalizeLevelId(challengeState.active?.level, selectedLevel);
+      if (challengeState.active && selectedLevel !== challengeLevel) {
+        clearActiveChallenge({ stripUrl: true });
+        subtitleEl.textContent = mainMenuCopy.subtitle;
+      }
       updateStartLevelDetails();
       if (world.mode !== "running" && world.mode !== "casino" && world.mode !== "rescue") {
         applyStartingLevel(progressionState.selectedStartLevel);
         world.mode = "ready";
       }
+    });
+    perkSelect?.addEventListener("change", (event) => {
+      const selectedPerk = String(event.target.value || "safe_landing");
+      if (!perkCatalog[selectedPerk]) {
+        return;
+      }
+      world.activePerk = selectedPerk;
+      updatePerkUi();
+      saveProgressionMeta();
+      updateMetaPanels();
     });
     controlSchemeSelect.addEventListener("change", (event) => {
       accessibilityState.controlScheme = event.target.value === "left" ? "left" : "right";
@@ -3242,9 +4254,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       : `Locked. ${preset.unlockCost} bank coins needed.`;
     characterSelect.value = currentCharacter;
     characterDetails.textContent = `${preset.name}: ${preset.abilityLabel}. ${preset.abilityDetail} ${lockStatus} Bank: ${progressionState.coinBank} coins.`;
+    updatePerkUi();
     updateShareImageMeta();
     refreshShareLinkForCharacter();
     syncCharacterInLocation();
+    updateMetaPanels();
   }
 
   async function initializeSupabaseAuth() {
@@ -3346,6 +4360,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   readAccessibilityState();
   applyAccessibilityUi();
   hydrateProgressionState();
+  buildDailyQuests();
+  parseChallengeFromUrl();
   unlockLevel(1);
   updateCharacterUi();
   stashAnonKeyFromUrl();
