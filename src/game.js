@@ -18,8 +18,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 (() => {
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
-  const splashScreen = document.getElementById("splashScreen");
-  const splashContinueButton = document.getElementById("splashContinueButton");
   const overlay = document.getElementById("overlay");
   const actionButton = document.getElementById("actionButton");
   const shareLink = document.getElementById("shareLink");
@@ -60,6 +58,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   const perkDetails = document.getElementById("perkDetails");
   const titleEl = overlay.querySelector(".title");
   const subtitleEl = overlay.querySelector(".subtitle");
+  const heroRunnerSummary = document.getElementById("heroRunnerSummary");
+  const heroDestinationSummary = document.getElementById("heroDestinationSummary");
+  const heroPerkSummary = document.getElementById("heroPerkSummary");
+  const heroRouteSummary = document.getElementById("heroRouteSummary");
+  const heroRunnerImage = document.getElementById("heroRunnerImage");
   const uiPixelFont = "\"Press Start 2P\", \"Courier New\", monospace";
   const uiMonoFont = "\"VT323\", \"Courier New\", monospace";
 
@@ -82,6 +85,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     collectibleLiftMax: 144,
     collectiblePickupPadding: 24,
     bonusSpawnChance: 0.1,
+    extraObstacleSpawnChanceBase: 0.08,
+    extraObstacleSpawnChanceScale: 0.12,
+    extraObstacleSpawnChanceMax: 0.18,
+    extraObstacleIntroScore: 4,
+    lowBarIntroScore: 10,
     slideTriggerScore: 14,
     slideMinSpeed: 250,
     slideHeight: 54,
@@ -576,10 +584,60 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   ];
   const mainMenuCopy = {
     title: "Bryan's Bonkers Cruise Dash",
-    subtitle: "Pick a runner, choose a start level, load a perk, and hit Start Run. Open Settings for controls, audio, and help."
+    subtitle: "Jump the deck hazards, collect drinks, and build enough momentum to cruise from port to port."
   };
   const menuState = {
     screen: "main"
+  };
+  const uiState = {
+    themedLevelId: null
+  };
+  const destinationUiPalettes = {
+    1: {
+      accent: "#ff9f58",
+      accentSoft: "#fff0be",
+      line: "rgba(39, 104, 126, 0.22)",
+      panel: "rgba(255, 252, 245, 0.82)",
+      panelStrong: "rgba(255, 245, 226, 0.94)",
+      shadow: "rgba(24, 85, 107, 0.18)",
+      glow: "rgba(255, 191, 112, 0.34)"
+    },
+    2: {
+      accent: "#ff8e57",
+      accentSoft: "#fdf4b8",
+      line: "rgba(24, 119, 122, 0.22)",
+      panel: "rgba(247, 255, 246, 0.82)",
+      panelStrong: "rgba(240, 253, 239, 0.94)",
+      shadow: "rgba(22, 100, 95, 0.18)",
+      glow: "rgba(121, 229, 204, 0.28)"
+    },
+    3: {
+      accent: "#ffb25c",
+      accentSoft: "#fff4c4",
+      line: "rgba(20, 107, 136, 0.22)",
+      panel: "rgba(244, 252, 255, 0.82)",
+      panelStrong: "rgba(237, 248, 252, 0.94)",
+      shadow: "rgba(27, 90, 123, 0.18)",
+      glow: "rgba(116, 212, 237, 0.28)"
+    },
+    4: {
+      accent: "#ff8a67",
+      accentSoft: "#ffe4bf",
+      line: "rgba(136, 91, 50, 0.22)",
+      panel: "rgba(255, 247, 239, 0.84)",
+      panelStrong: "rgba(255, 241, 222, 0.94)",
+      shadow: "rgba(113, 71, 39, 0.18)",
+      glow: "rgba(255, 176, 119, 0.28)"
+    },
+    5: {
+      accent: "#ff7f7f",
+      accentSoft: "#ffd4d9",
+      line: "rgba(134, 76, 127, 0.22)",
+      panel: "rgba(255, 245, 252, 0.82)",
+      panelStrong: "rgba(255, 238, 246, 0.94)",
+      shadow: "rgba(103, 61, 108, 0.18)",
+      glow: "rgba(243, 143, 196, 0.26)"
+    }
   };
   const supabaseConfig = {
     url: "https://gzigwxvukzxyfphuzmmy.supabase.co",
@@ -643,7 +701,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       return;
     }
     authStatus.textContent = message;
-    authStatus.style.color = isError ? "#ffb3ad" : "#d7eff9";
+    authStatus.style.color = isError ? "#b0493c" : "#4d6f7b";
   }
 
   function setAuthBusy(isBusy) {
@@ -671,6 +729,63 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
     setAuthStatusMessage("Not signed in.");
     signOutButton.disabled = true;
+  }
+
+  function applyDestinationTheme(level = levels[0]) {
+    const safeLevel = level || levels[0];
+    if (!safeLevel || uiState.themedLevelId === safeLevel.id) {
+      return;
+    }
+    const palette = destinationUiPalettes[safeLevel.id] || destinationUiPalettes[1];
+    document.documentElement.style.setProperty("--destination-accent", palette.accent);
+    document.documentElement.style.setProperty("--destination-accent-soft", palette.accentSoft);
+    document.documentElement.style.setProperty("--destination-line", palette.line);
+    document.documentElement.style.setProperty("--destination-panel", palette.panel);
+    document.documentElement.style.setProperty("--destination-panel-strong", palette.panelStrong);
+    document.documentElement.style.setProperty("--destination-shadow", palette.shadow);
+    document.documentElement.style.setProperty("--destination-hero-glow", palette.glow);
+    document.documentElement.style.setProperty(
+      "--hero-art",
+      `url("${levelBackgroundSources[safeLevel.id - 1] || levelBackgroundSources[0]}")`
+    );
+    uiState.themedLevelId = safeLevel.id;
+  }
+
+  function updateHeroPreview() {
+    const menuLevelId = getSelectedStartLevelId();
+    const level = world.mode === "ready"
+      ? levels[menuLevelId - 1] || levels[0]
+      : getCurrentLevel();
+    const preset = getActivePreset();
+    const perk = getActivePerkConfig();
+    const threshold = getLevelStartScore(menuLevelId - 1);
+
+    if (heroRunnerSummary) {
+      heroRunnerSummary.textContent = preset.name;
+    }
+    if (heroDestinationSummary) {
+      heroDestinationSummary.textContent = `Level ${level.id} - ${level.name}`;
+    }
+    if (heroPerkSummary) {
+      heroPerkSummary.textContent = perk.name;
+    }
+    if (heroRouteSummary) {
+      heroRouteSummary.textContent = world.mode === "ready"
+        ? threshold > 0
+          ? `Boarding at ${level.name} with a ${threshold}-point head start.`
+          : `Fresh departure from ${level.name}.`
+        : `Currently cruising through ${level.name}.`;
+    }
+    if (heroRunnerImage && heroRunnerImage.getAttribute("src") !== preset.runnerIdleSrc) {
+      heroRunnerImage.src = preset.runnerIdleSrc;
+    }
+
+    applyDestinationTheme(level);
+  }
+
+  function syncPrimaryMenuActions(layout = overlay.dataset.layout || "compact") {
+    const showSettingsButton = layout === "start" && menuState.screen === "main";
+    settingsButton?.classList.toggle("hidden", !showSettingsButton);
   }
 
   function loadImageWithReadyFlag(src, fallbackSrc = null) {
@@ -854,7 +969,10 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       nextRiskGateAt: config.riskGateIntervalSeconds,
       rngState: 1,
       gateIndex: 0,
-      actAnnouncementShown: false
+      actAnnouncementShown: false,
+      lastExtraObstacleType: "",
+      obstacleWallStreak: 0,
+      wallsSinceExtraObstacle: 2
     },
     challenge: {
       active: false,
@@ -1112,6 +1230,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     const threshold = getLevelStartScore(levelIndex);
     const intro = threshold > 0 ? `Starts at ${threshold} score.` : "Starts fresh at score 0.";
     startLevelDetails.textContent = `${level.name}. ${intro}`;
+    updateHeroPreview();
   }
 
   function refreshStartLevelOptions() {
@@ -1240,6 +1359,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     perkSelect.value = world.activePerk;
     const perk = getActivePerkConfig();
     perkDetails.textContent = `${perk.name}: ${perk.detail}`;
+    updateHeroPreview();
   }
 
   function toQuestTitle(template, target) {
@@ -1694,6 +1814,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     world.casino.levelRestartQueued = false;
     world.invulnerableTime = Math.max(world.invulnerableTime, 0.9);
     world.levelElapsed = 0;
+    world.spawnDirector.lastExtraObstacleType = "";
+    world.spawnDirector.obstacleWallStreak = 0;
+    world.spawnDirector.wallsSinceExtraObstacle = 2;
 
     runner.y = world.groundY - runner.height;
     runner.vy = 0;
@@ -1971,6 +2094,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     world.spawnDirector.nextRiskGateAt = config.riskGateIntervalSeconds;
     world.spawnDirector.gateIndex = 0;
     world.spawnDirector.actAnnouncementShown = false;
+    world.spawnDirector.lastExtraObstacleType = "";
+    world.spawnDirector.obstacleWallStreak = 0;
+    world.spawnDirector.wallsSinceExtraObstacle = 2;
     world.invulnerableTime = 0;
 
     runner.y = world.groundY - runner.height;
@@ -2215,7 +2341,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       runStats.classList.add("hidden");
       runStats.innerHTML = "";
     }
+    document.body.classList.add("overlay-open");
     revealScreen(overlay);
+    syncPrimaryMenuActions(layout);
     updateCharacterUi();
   }
 
@@ -2226,6 +2354,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     mainMenuScreen?.classList.toggle("hidden", nextScreen !== "main");
     settingsMenuScreen?.classList.toggle("hidden", nextScreen !== "settings");
     settingsButton?.setAttribute("aria-expanded", String(nextScreen === "settings"));
+    syncPrimaryMenuActions();
     if (focus === "settings" && nextScreen === "settings") {
       settingsBackButton?.focus();
     } else if (focus === "main" && nextScreen === "main") {
@@ -2234,6 +2363,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   }
 
   function hideOverlay() {
+    document.body.classList.remove("overlay-open");
     concealScreen(overlay);
   }
 
@@ -2267,21 +2397,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       ? `Challenge loaded: beat ${challengeState.active.targetScore} with ${challengeState.active.runner} on Level ${challengeState.active.level}.`
       : mainMenuCopy.subtitle;
     showOverlay(mainMenuCopy.title, subtitle, "Start Run", null, { layout: "start" });
-  }
-
-  function showSplashScreen() {
-    world.mode = "splash";
-    hideOverlay();
-    revealScreen(splashScreen);
-    splashContinueButton.focus();
-  }
-
-  function dismissSplashToMainMenu() {
-    if (world.mode !== "splash") {
-      return;
-    }
-    concealScreen(splashScreen);
-    showMainMenu();
+    requestAnimationFrame(() => {
+      actionButton?.focus();
+    });
     maybeShowWhatsNew();
   }
 
@@ -2585,10 +2703,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   }
 
   function queueJump() {
-    if (world.mode === "splash") {
-      dismissSplashToMainMenu();
-      return;
-    }
     if (world.mode === "ready" || world.mode === "gameOver") {
       startRun();
       return;
@@ -2774,55 +2888,168 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   }
 
   function pushObstacle(type, x) {
+    const difficulty = getDifficulty();
     if (type === "beachBall") {
-      world.obstacles.push({
+      const obstacle = {
         type: "beachBall",
-        x: x + randomBetween(90, 180, runRandom),
+        x: x + randomBetween(132, 220 - difficulty * 16, runRandom),
         y: world.groundY - 34,
         width: 34,
         height: 34
-      });
-      return;
+      };
+      world.obstacles.push(obstacle);
+      return obstacle;
     }
     if (type === "surfboard") {
-      world.obstacles.push({
+      const obstacle = {
         type: "surfboard",
-        x: x + randomBetween(120, 220, runRandom),
+        x: x + randomBetween(172, 284 - difficulty * 20, runRandom),
         y: world.groundY - 30,
         width: 88,
         height: 30
-      });
-      return;
+      };
+      world.obstacles.push(obstacle);
+      return obstacle;
     }
     if (type === "lowBar") {
-      world.obstacles.push({
+      const obstacle = {
         type: "lowBar",
-        x: x + randomBetween(140, 220, runRandom),
+        x: x + randomBetween(214, 318 - difficulty * 18, runRandom),
         y: world.groundY - 110,
         width: 120,
         height: 18
-      });
+      };
+      world.obstacles.push(obstacle);
+      return obstacle;
     }
+    return null;
+  }
+
+  function getObstacleRecoveryGap(type) {
+    if (type === "lowBar") {
+      return 148;
+    }
+    if (type === "surfboard") {
+      return 136;
+    }
+    return 112;
+  }
+
+  function getRandomExtraObstacleChance() {
+    if (world.score < config.extraObstacleIntroScore) {
+      return 0;
+    }
+    const difficulty = getDifficulty();
+    return Math.min(
+      config.extraObstacleSpawnChanceMax,
+      config.extraObstacleSpawnChanceBase + difficulty * config.extraObstacleSpawnChanceScale
+    );
+  }
+
+  function canSpawnExtraObstacleType(type, options = {}) {
+    const { forced = false } = options;
+    if (!type || type === "none") {
+      return false;
+    }
+    const act = getRunAct();
+    const minRecoveryWalls = forced ? (act === 1 ? 2 : 1) : act === 3 ? 1 : 2;
+    const maxObstacleWallStreak = act === 3 ? 2 : 1;
+    if (world.spawnDirector.wallsSinceExtraObstacle < minRecoveryWalls) {
+      return false;
+    }
+    if (world.spawnDirector.obstacleWallStreak >= maxObstacleWallStreak) {
+      return false;
+    }
+    if (world.spawnDirector.lastExtraObstacleType === type) {
+      return false;
+    }
+    if (type === "lowBar" && (act < 2 || world.score < config.lowBarIntroScore)) {
+      return false;
+    }
+    if (type === "lowBar" && world.spawnDirector.obstacleWallStreak > 0) {
+      return false;
+    }
+    return true;
+  }
+
+  function getForcedObstacleCandidates(type) {
+    if (!type || type === "none") {
+      return ["none"];
+    }
+    if (type === "lowBar") {
+      return ["lowBar", "surfboard", "beachBall", "none"];
+    }
+    if (type === "surfboard") {
+      return ["surfboard", "beachBall", "none"];
+    }
+    if (type === "beachBall") {
+      return ["beachBall", "surfboard", "none"];
+    }
+    return ["none"];
+  }
+
+  function getRandomObstacleCandidates() {
+    const act = getRunAct();
+    const roll = runRandom();
+    if (act === 1) {
+      return roll < 0.58
+        ? ["beachBall", "surfboard", "none"]
+        : ["surfboard", "beachBall", "none"];
+    }
+    if (act === 2) {
+      if (roll < 0.4) {
+        return ["beachBall", "surfboard", "lowBar", "none"];
+      }
+      if (roll < 0.75) {
+        return ["surfboard", "beachBall", "lowBar", "none"];
+      }
+      return ["lowBar", "surfboard", "beachBall", "none"];
+    }
+    if (roll < 0.34) {
+      return ["beachBall", "surfboard", "lowBar", "none"];
+    }
+    if (roll < 0.67) {
+      return ["surfboard", "lowBar", "beachBall", "none"];
+    }
+    return ["lowBar", "surfboard", "beachBall", "none"];
+  }
+
+  function selectExtraObstacleType(candidates, options = {}) {
+    for (const candidate of candidates) {
+      if (candidate === "none") {
+        continue;
+      }
+      if (canSpawnExtraObstacleType(candidate, options)) {
+        return candidate;
+      }
+    }
+    return "none";
+  }
+
+  function registerExtraObstacleResult(type) {
+    if (type && type !== "none") {
+      world.spawnDirector.lastExtraObstacleType = type;
+      world.spawnDirector.obstacleWallStreak += 1;
+      world.spawnDirector.wallsSinceExtraObstacle = 0;
+      return;
+    }
+    world.spawnDirector.obstacleWallStreak = 0;
+    world.spawnDirector.wallsSinceExtraObstacle += 1;
   }
 
   function maybeSpawnExtraObstacle(x, forcedType = null) {
     if (forcedType && forcedType !== "none") {
-      pushObstacle(forcedType, x);
-      return;
+      const resolvedType = selectExtraObstacleType(getForcedObstacleCandidates(forcedType), { forced: true });
+      registerExtraObstacleResult(resolvedType);
+      return resolvedType === "none" ? null : pushObstacle(resolvedType, x);
     }
-    if (runRandom() > 0.45) {
-      return;
+    if (runRandom() > getRandomExtraObstacleChance()) {
+      registerExtraObstacleResult("none");
+      return null;
     }
-    const variantRoll = runRandom();
-    if (variantRoll < 0.34) {
-      pushObstacle("beachBall", x);
-      return;
-    }
-    if (variantRoll < 0.67) {
-      pushObstacle("surfboard", x);
-      return;
-    }
-    pushObstacle("lowBar", x);
+    const resolvedType = selectExtraObstacleType(getRandomObstacleCandidates(), { forced: false });
+    registerExtraObstacleResult(resolvedType);
+    return resolvedType === "none" ? null : pushObstacle(resolvedType, x);
   }
 
   function spawnRiskGate(baseX, wallHeight, pattern) {
@@ -3096,7 +3323,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         taken: false
       });
     }
-    maybeSpawnExtraObstacle(x, pattern?.extraObstacle || null);
+    const extraObstacle = maybeSpawnExtraObstacle(x, pattern?.extraObstacle || null);
     spawnRiskGate(x + width, height, pattern);
     const gapRange = getSpawnGapRange();
     let gapScale = pattern?.gapScale || 1;
@@ -3108,7 +3335,15 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
     const minGap = Math.max(120, gapRange.min * gapScale);
     const maxGap = Math.max(minGap + 40, gapRange.max * gapScale);
-    world.nextSpawnX = x + width + randomBetween(minGap, maxGap, runRandom);
+    const nextWallX = x + width + randomBetween(minGap, maxGap, runRandom);
+    if (extraObstacle) {
+      world.nextSpawnX = Math.max(
+        nextWallX,
+        extraObstacle.x + extraObstacle.width + getObstacleRecoveryGap(extraObstacle.type)
+      );
+      return;
+    }
+    world.nextSpawnX = nextWallX;
   }
 
   function ensureGenerated() {
@@ -3138,6 +3373,17 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         width: obstacle.width,
         height: obstacle.height
       };
+      if (obstacle.type === "beachBall") {
+        rect.left += 5;
+        rect.top += 5;
+        rect.width = Math.max(18, rect.width - 10);
+        rect.height = Math.max(18, rect.height - 10);
+      } else if (obstacle.type === "surfboard") {
+        rect.left += 10;
+        rect.top += 4;
+        rect.width = Math.max(44, rect.width - 20);
+        rect.height = Math.max(16, rect.height - 8);
+      }
       if (obstacle.type === "lowBar") {
         if (runner.isSliding) {
           continue;
@@ -3156,6 +3402,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   function updateHud() {
     scoreValue.textContent = String(world.score);
     const level = getCurrentLevel();
+    applyDestinationTheme(level);
     const pointsToNext = Number.isFinite(level.nextScore)
       ? Math.max(0, level.nextScore - world.score)
       : null;
@@ -3687,8 +3934,30 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
   }
 
-  function drawRunner() {
+  function getRunnerVisualMetrics() {
     const preset = getActivePreset();
+    const baseDrawScale = 1.24;
+    const visualScale = baseDrawScale * Math.max(1, preset.runnerScale || 1);
+    const slideScale = runner.isSliding ? 0.7 : 1;
+    const drawW = runner.width * visualScale;
+    const drawH = runner.height * visualScale * slideScale;
+    const baseDrawH = runner.height * baseDrawScale;
+    const drawYOffset = (baseDrawH - drawH) * 0.5;
+    const shadowScale = visualScale / baseDrawScale;
+    const topY = runner.y + runner.height * 0.5 - drawH * 0.5 + drawYOffset;
+
+    return {
+      preset,
+      drawW,
+      drawH,
+      drawYOffset,
+      shadowScale,
+      topY
+    };
+  }
+
+  function drawRunner() {
+    const { preset, drawW, drawH, drawYOffset, shadowScale } = getRunnerVisualMetrics();
     const activeAssets = getActiveAssets();
     const x = world.width * config.runnerScreenRatio;
     const y = runner.y;
@@ -3698,14 +3967,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
     runner.tilt += (Math.max(-0.2, Math.min(0.2, -runner.vy * 0.0008)) - runner.tilt) * 0.2;
     const bob = runner.onGround ? Math.sin(runCycle) * 1.9 : 0;
-    const baseDrawScale = 1.24;
-    const visualScale = baseDrawScale * Math.max(1, preset.runnerScale || 1);
-    const drawW = runner.width * visualScale;
-    const slideScale = runner.isSliding ? 0.7 : 1;
-    const drawH = runner.height * visualScale * slideScale;
-    const baseDrawH = runner.height * baseDrawScale;
-    const drawYOffset = (baseDrawH - drawH) * 0.5;
-    const shadowScale = visualScale / baseDrawScale;
 
     ctx.save();
     ctx.translate(x + runner.width * 0.5, y + runner.height * 0.5 + bob);
@@ -3756,7 +4017,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
   function drawLivesNearRunner() {
     const x = world.width * config.runnerScreenRatio + runner.width * 0.5;
-    const y = runner.y - 22;
+    const { topY } = getRunnerVisualMetrics();
+    const y = Math.max(18, topY - 16);
     const lives = Math.max(0, world.lives);
     for (let i = 0; i < config.maxLives; i += 1) {
       ctx.globalAlpha = i < lives ? 1 : 0.24;
@@ -4005,16 +4267,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       if (context && context.state === "suspended") {
         context.resume().catch(() => {});
       }
-      if (
-        world.mode === "splash" &&
-        (event.code === "Space" || event.code === "ArrowUp" || event.code === "KeyW" || event.code === "Enter")
-      ) {
-        event.preventDefault();
-        if (!event.repeat) {
-          dismissSplashToMainMenu();
-        }
-        return;
-      }
 
       if (jumpKeys.has(event.code)) {
         event.preventDefault();
@@ -4044,8 +4296,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         context.resume().catch(() => {});
       }
     });
-    splashScreen.addEventListener("pointerdown", dismissSplashToMainMenu);
-    splashContinueButton.addEventListener("click", dismissSplashToMainMenu);
     actionButton.addEventListener("click", () => {
       if (world.mode === "casino") {
         if (world.casino.pendingPull) {
@@ -4372,6 +4622,6 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     setAuthBusy(false);
   });
   setupInput();
-  showSplashScreen();
+  showMainMenu();
   requestAnimationFrame(onFrame);
 })();

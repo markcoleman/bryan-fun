@@ -75,6 +75,14 @@ const PATTERN_LIBRARY_BY_ACT = {
       riskGateBias: 0.45
     },
     {
+      id: "scenic-breath",
+      difficulty: "easy",
+      gapScale: 1.15,
+      wallHeightScale: 0.96,
+      extraObstacle: "none",
+      riskGateBias: 0.42
+    },
+    {
       id: "single-ball",
       difficulty: "easy",
       gapScale: 1.12,
@@ -85,86 +93,94 @@ const PATTERN_LIBRARY_BY_ACT = {
     {
       id: "early-board",
       difficulty: "medium",
-      gapScale: 1.04,
+      gapScale: 1.1,
       wallHeightScale: 1,
       extraObstacle: "surfboard",
-      riskGateBias: 0.55
-    },
-    {
-      id: "intro-low-bar",
-      difficulty: "medium",
-      gapScale: 1.07,
-      wallHeightScale: 1,
-      extraObstacle: "lowBar",
-      riskGateBias: 0.58
+      riskGateBias: 0.5
     }
   ],
   2: [
     {
       id: "mixed-board",
       difficulty: "medium",
-      gapScale: 1,
+      gapScale: 1.05,
       wallHeightScale: 1.05,
       extraObstacle: "surfboard",
-      riskGateBias: 0.65
+      riskGateBias: 0.6
     },
     {
       id: "mixed-low-bar",
-      difficulty: "hard",
-      gapScale: 0.93,
-      wallHeightScale: 1.08,
+      difficulty: "medium",
+      gapScale: 1.01,
+      wallHeightScale: 1.04,
       extraObstacle: "lowBar",
-      riskGateBias: 0.7
+      riskGateBias: 0.62
     },
     {
       id: "double-ball",
       difficulty: "medium",
-      gapScale: 0.96,
-      wallHeightScale: 1.03,
+      gapScale: 1.03,
+      wallHeightScale: 1.01,
       extraObstacle: "beachBall",
-      riskGateBias: 0.67
+      riskGateBias: 0.6
     },
     {
       id: "tight-none",
-      difficulty: "hard",
-      gapScale: 0.9,
-      wallHeightScale: 1.12,
+      difficulty: "medium",
+      gapScale: 0.98,
+      wallHeightScale: 1.08,
       extraObstacle: "none",
-      riskGateBias: 0.72
+      riskGateBias: 0.64
+    },
+    {
+      id: "breather-none",
+      difficulty: "easy",
+      gapScale: 1.1,
+      wallHeightScale: 0.98,
+      extraObstacle: "none",
+      riskGateBias: 0.56
     }
   ],
   3: [
     {
       id: "sprint-low-bar",
       difficulty: "hard",
-      gapScale: 0.86,
-      wallHeightScale: 1.15,
+      gapScale: 0.94,
+      wallHeightScale: 1.1,
       extraObstacle: "lowBar",
-      riskGateBias: 0.78
+      riskGateBias: 0.72
     },
     {
       id: "sprint-board",
       difficulty: "hard",
-      gapScale: 0.88,
-      wallHeightScale: 1.12,
+      gapScale: 0.96,
+      wallHeightScale: 1.08,
       extraObstacle: "surfboard",
-      riskGateBias: 0.76
+      riskGateBias: 0.7
     },
     {
       id: "sprint-ball",
       difficulty: "medium",
-      gapScale: 0.92,
-      wallHeightScale: 1.08,
+      gapScale: 1,
+      wallHeightScale: 1.05,
       extraObstacle: "beachBall",
-      riskGateBias: 0.73
+      riskGateBias: 0.68
     },
     {
       id: "sprint-breath",
       difficulty: "medium",
-      gapScale: 1.02,
+      gapScale: 1.08,
       wallHeightScale: 1.04,
       extraObstacle: "none",
-      riskGateBias: 0.7
+      riskGateBias: 0.64
+    },
+    {
+      id: "sprint-recover",
+      difficulty: "easy",
+      gapScale: 1.14,
+      wallHeightScale: 0.98,
+      extraObstacle: "none",
+      riskGateBias: 0.58
     }
   ]
 };
@@ -349,12 +365,28 @@ function canUsePatternAfterState(pattern, state) {
   if (!pattern || typeof pattern !== "object") {
     return false;
   }
+  const extraObstacle = pattern.extraObstacle === "none" ? "" : String(pattern.extraObstacle || "");
   const nextHardStreak = pattern.difficulty === "hard" ? state.hardStreak + 1 : 0;
   const nextLowBarStreak = pattern.extraObstacle === "lowBar" ? state.lowBarStreak + 1 : 0;
+  const nextObstacleStreak = extraObstacle ? state.obstacleStreak + 1 : 0;
+  const nextRepeatObstacleStreak = extraObstacle && extraObstacle === state.lastObstacleType
+    ? state.repeatObstacleStreak + 1
+    : extraObstacle
+    ? 1
+    : 0;
   if (nextHardStreak > 2) {
     return false;
   }
   if (nextLowBarStreak > 2) {
+    return false;
+  }
+  if (nextObstacleStreak > 2) {
+    return false;
+  }
+  if (nextRepeatObstacleStreak > 1) {
+    return false;
+  }
+  if (pattern.extraObstacle === "lowBar" && state.obstacleStreak > 0) {
     return false;
   }
   return true;
@@ -364,9 +396,17 @@ function applyPatternState(pattern, state) {
   if (!pattern || typeof pattern !== "object") {
     return state;
   }
+  const extraObstacle = pattern.extraObstacle === "none" ? "" : String(pattern.extraObstacle || "");
   return {
     hardStreak: pattern.difficulty === "hard" ? state.hardStreak + 1 : 0,
-    lowBarStreak: pattern.extraObstacle === "lowBar" ? state.lowBarStreak + 1 : 0
+    lowBarStreak: pattern.extraObstacle === "lowBar" ? state.lowBarStreak + 1 : 0,
+    obstacleStreak: extraObstacle ? state.obstacleStreak + 1 : 0,
+    lastObstacleType: extraObstacle,
+    repeatObstacleStreak: extraObstacle && extraObstacle === state.lastObstacleType
+      ? state.repeatObstacleStreak + 1
+      : extraObstacle
+      ? 1
+      : 0
   };
 }
 
@@ -407,7 +447,13 @@ export function buildPatternDeck(seed, act, options = {}) {
   }
 
   const deck = [];
-  let state = { hardStreak: 0, lowBarStreak: 0 };
+  let state = {
+    hardStreak: 0,
+    lowBarStreak: 0,
+    obstacleStreak: 0,
+    lastObstacleType: "",
+    repeatObstacleStreak: 0
+  };
   for (let index = 0; index < deckLength; index += 1) {
     const candidates = [...sourcePatterns];
     const picked = [];

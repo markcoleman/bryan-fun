@@ -24,19 +24,6 @@
 <body>
   <main class="game-shell">
     <canvas id="gameCanvas" aria-label="Side-scrolling runner game"></canvas>
-    <section id="splashScreen" class="splash-screen" aria-label="Opening splash screen">
-      <div class="splash-card">
-        <div class="splash-art-frame" aria-hidden="true">
-          <img
-            class="splash-image"
-            src="assets/images/ui/bryan-splash.png"
-            alt="Bryan splash artwork"
-            draggable="false"
-          >
-        </div>
-        <button id="splashContinueButton" class="splash-continue" type="button">Press Start</button>
-      </div>
-    </section>
     <section class="hud" aria-live="polite">
       <div class="hud-primary">
         <div class="hud-item hud-item-score">
@@ -64,52 +51,88 @@
         </div>
       </div>
     </section>
-    <section class="overlay" id="overlay">
+    <section class="overlay hidden" id="overlay">
       <div class="overlay-card">
-        <div class="overlay-heading">
-          <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
-          <p class="subtitle">Tap, click, or press Space / Arrow Up to jump.</p>
+        <div class="hero-marquee">
+          <div class="hero-copy">
+            <p class="hero-kicker">All Aboard The Bonkers Route</p>
+            <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
+            <p class="subtitle">Jump the deck hazards, collect drinks, and build enough momentum to cruise from port to port.</p>
+            <div class="hero-facts" aria-label="Current voyage setup">
+              <article class="hero-fact">
+                <span class="hero-fact-label">Runner</span>
+                <span id="heroRunnerSummary" class="hero-fact-value">Bryan</span>
+              </article>
+              <article class="hero-fact">
+                <span class="hero-fact-label">Port Of Call</span>
+                <span id="heroDestinationSummary" class="hero-fact-value">Existing Cruise Deck</span>
+              </article>
+              <article class="hero-fact">
+                <span class="hero-fact-label">Perk</span>
+                <span id="heroPerkSummary" class="hero-fact-value">Safe Landing</span>
+              </article>
+            </div>
+            <p id="heroRouteSummary" class="hero-route-summary">Fresh departure from the Existing Cruise Deck.</p>
+          </div>
+          <div class="hero-scene" aria-hidden="true">
+            <div class="hero-scene-backdrop"></div>
+            <div class="hero-sun"></div>
+            <div class="hero-gulls">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="hero-ship"></div>
+            <div class="hero-wave hero-wave-back"></div>
+            <img
+              id="heroRunnerImage"
+              class="hero-runner"
+              src="assets/images/characters/bryan.png"
+              alt=""
+              draggable="false"
+            >
+            <div class="hero-wave hero-wave-front"></div>
+          </div>
         </div>
         <section class="menu-panels">
           <section id="mainMenuScreen" class="menu-screen" aria-label="Main menu">
             <div class="menu-panel menu-panel-setup">
-              <p class="menu-panel-title">Quick Setup</p>
-              <div class="character-picker">
-                <label for="characterSelect">Runner</label>
-                <select id="characterSelect">
-                  <option value="bryan">Bryan + Pill</option>
-                  <option value="barbra">Barbra + Morning Beer</option>
-                  <option value="kyle">Kyle + Champagne</option>
-                </select>
-                <p id="characterDetails" class="character-details"></p>
+              <div class="menu-panel-header">
+                <div>
+                  <p class="menu-panel-title">Ready To Sail</p>
+                  <p class="boarding-copy">Tap into the run fast, then tweak the voyage only if you want to.</p>
+                </div>
               </div>
-              <div class="start-level-picker">
-                <label for="startLevelSelect">Start Level</label>
-                <select id="startLevelSelect">
-                  <option value="1">Level 1 - Existing Cruise Deck</option>
-                </select>
-                <p id="startLevelDetails" class="start-level-details"></p>
-              </div>
-              <div class="perk-picker">
-                <label for="perkSelect">Perk Loadout</label>
-                <select id="perkSelect">
-                  <option value="safe_landing">Safe Landing</option>
-                  <option value="combo_shield">Combo Shield</option>
-                  <option value="lucky_pull">Lucky Pull</option>
-                </select>
-                <p id="perkDetails" class="perk-details"></p>
-              </div>
-              <div class="menu-quick-actions">
-                <button
-                  id="settingsButton"
-                  class="menu-nav-button"
-                  type="button"
-                  aria-controls="settingsMenuScreen"
-                  aria-expanded="false"
-                >
-                  Settings
-                </button>
-              </div>
+              <details class="voyage-customizer">
+                <summary>Customize Voyage</summary>
+                <div class="voyage-customizer-grid">
+                  <div class="character-picker">
+                    <label for="characterSelect">Runner</label>
+                    <select id="characterSelect">
+                      <option value="bryan">Bryan + Pill</option>
+                      <option value="barbra">Barbra + Morning Beer</option>
+                      <option value="kyle">Kyle + Champagne</option>
+                    </select>
+                    <p id="characterDetails" class="character-details"></p>
+                  </div>
+                  <div class="start-level-picker">
+                    <label for="startLevelSelect">Start Level</label>
+                    <select id="startLevelSelect">
+                      <option value="1">Level 1 - Existing Cruise Deck</option>
+                    </select>
+                    <p id="startLevelDetails" class="start-level-details"></p>
+                  </div>
+                  <div class="perk-picker">
+                    <label for="perkSelect">Perk Loadout</label>
+                    <select id="perkSelect">
+                      <option value="safe_landing">Safe Landing</option>
+                      <option value="combo_shield">Combo Shield</option>
+                      <option value="lucky_pull">Lucky Pull</option>
+                    </select>
+                    <p id="perkDetails" class="perk-details"></p>
+                  </div>
+                </div>
+              </details>
             </div>
           </section>
           <section id="settingsMenuScreen" class="menu-screen hidden" aria-label="Settings menu">
@@ -177,6 +200,15 @@
         </section>
         <div class="overlay-actions">
           <button id="actionButton" type="button">Start Run</button>
+          <button
+            id="settingsButton"
+            class="menu-nav-button"
+            type="button"
+            aria-controls="settingsMenuScreen"
+            aria-expanded="false"
+          >
+            Settings
+          </button>
           <a id="shareLink" class="share-link hidden" href="#" target="_blank" rel="noopener">
             Share Score
           </a>

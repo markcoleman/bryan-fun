@@ -144,11 +144,27 @@ test("buildPatternDeck is deterministic and avoids impossible streaks", () => {
 
   let hardStreak = 0;
   let lowBarStreak = 0;
+  let obstacleStreak = 0;
+  let lastObstacleType = "";
   first.forEach((pattern) => {
+    const obstacleType = pattern.extraObstacle === "none" ? "" : pattern.extraObstacle;
     hardStreak = pattern.difficulty === "hard" ? hardStreak + 1 : 0;
     lowBarStreak = pattern.extraObstacle === "lowBar" ? lowBarStreak + 1 : 0;
+    obstacleStreak = obstacleType ? obstacleStreak + 1 : 0;
     assert.ok(hardStreak <= 2, "too many hard patterns in a row");
     assert.ok(lowBarStreak <= 2, "too many low-bar patterns in a row");
+    assert.ok(obstacleStreak <= 2, "too many obstacle walls in a row");
+    if (obstacleType) {
+      assert.notEqual(obstacleType, lastObstacleType, "obstacle types should alternate");
+    }
+    lastObstacleType = obstacleType;
+  });
+});
+
+test("act 1 pattern deck stays in warm-up territory", () => {
+  const actOneDeck = buildPatternDeck(99, 1, { deckLength: 16 });
+  actOneDeck.forEach((pattern) => {
+    assert.notEqual(pattern.extraObstacle, "lowBar");
   });
 });
 
