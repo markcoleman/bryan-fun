@@ -9,7 +9,7 @@ Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the r
 - Collect `assets/images/items/drink.png` while jumping.
 - Every drink collected increases running speed.
 - Destination leveling progression: Level 1 Existing Cruise Deck, Level 2 Island Adventure with Adults-Only Pool, Level 3 Bahamas, Level 4 Cruise Deck, Level 5 Miami.
-- Reaching a level milestone restarts the stage layout at the newly unlocked destination while preserving your current speed momentum.
+- Reaching each voyage-distance milestone restarts the stage layout at the newly unlocked destination while preserving your current speed momentum.
 - Each level uses a different full-screen background image.
 - Level 2 uses a parallax beach setup: `assets/images/backgrounds/beach-background.png` (background) and `assets/images/grounds/beach.png` (ground).
 - Level 3 uses: `assets/images/backgrounds/beach-background.png` (background) and `assets/images/grounds/bahamas.png` (ground).
