@@ -101,6 +101,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     rescueReviveHold: 0.55,
     rescuePostInvulnerability: 1.4,
     levelAnnouncementDuration: 2.35,
+    distanceScale: 0.1,
+    finalDestinationSpan: 600,
     maxLives: 3,
     checkpointInterval: 5,
     comboWindowSeconds: 2.6,
@@ -137,6 +139,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     slide: new Image(),
     deck: new Image(),
     umbrella: new Image(),
+    beachBall: new Image(),
+    surfboard: new Image(),
+    lowBar: new Image(),
     casinoBackground: new Image(),
     slotMachine: new Image(),
     rescueDoctor: new Image(),
@@ -149,6 +154,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     slideReady: false,
     deckReady: false,
     umbrellaReady: false,
+    beachBallReady: false,
+    surfboardReady: false,
+    lowBarReady: false,
     casinoBackgroundReady: false,
     slotMachineReady: false,
     rescueDoctorReady: false,
@@ -164,7 +172,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     {
       id: 1,
       name: "Existing Cruise Deck",
-      nextScore: 8,
+      nextDistance: 300,
       difficulty: 0.08,
       theme: {
         skyTop: "#96dfff",
@@ -179,7 +187,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     {
       id: 2,
       name: "Island Adventure with Adults-Only Pool",
-      nextScore: 18,
+      nextDistance: 700,
       difficulty: 0.24,
       theme: {
         skyTop: "#63ddd8",
@@ -194,7 +202,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     {
       id: 3,
       name: "Bahamas",
-      nextScore: 31,
+      nextDistance: 1200,
       difficulty: 0.42,
       theme: {
         skyTop: "#45b8f4",
@@ -209,7 +217,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     {
       id: 4,
       name: "Cruise Deck",
-      nextScore: 46,
+      nextDistance: 1800,
       difficulty: 0.6,
       theme: {
         skyTop: "#ffb16d",
@@ -224,7 +232,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     {
       id: 5,
       name: "Miami",
-      nextScore: null,
+      nextDistance: null,
       difficulty: 0.78,
       theme: {
         skyTop: "#ff7e73",
@@ -443,8 +451,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         date: "2026-03-27",
         title: "Destination leveling system",
         bullets: [
-          "Added five unlockable destinations with score milestones: Existing Cruise Deck, Island Adventure with Adults-Only Pool, Bahamas, Cruise Deck, and Miami.",
-          "Added HUD tracking for current level, destination, and exact points needed for the next level.",
+          "Added five unlockable destinations along the voyage route: Existing Cruise Deck, Island Adventure with Adults-Only Pool, Bahamas, Cruise Deck, and Miami.",
+          "Added HUD tracking for current level, destination, and remaining voyage distance to the next level.",
           "Adjusted difficulty to scale by level progression so each destination remains obtainable while still feeling faster and tougher over time."
         ]
       },
@@ -455,7 +463,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         bullets: [
           "Unlocked levels are now saved in local storage, so progression persists across sessions.",
           "Added a start-level picker on the start screen that lets you begin from any unlocked level.",
-          "Starting from an unlocked level now seeds score to that level threshold while keeping core run speed behavior unchanged."
+          "Starting from an unlocked level now begins that far into the voyage while keeping score reset and core run speed behavior unchanged."
         ]
       }
     ],
@@ -758,7 +766,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       : getCurrentLevel();
     const preset = getActivePreset();
     const perk = getActivePerkConfig();
-    const threshold = getLevelStartScore(menuLevelId - 1);
+    const threshold = getLevelStartDistance(menuLevelId - 1);
 
     if (heroRunnerSummary) {
       heroRunnerSummary.textContent = preset.name;
@@ -772,7 +780,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     if (heroRouteSummary) {
       heroRouteSummary.textContent = world.mode === "ready"
         ? threshold > 0
-          ? `Boarding at ${level.name} with a ${threshold}-point head start.`
+          ? `Boarding directly at ${level.name}, ${formatVoyageDistance(threshold)} into the voyage.`
           : `Fresh departure from ${level.name}.`
         : `Currently cruising through ${level.name}.`;
     }
@@ -824,6 +832,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     slide: imagePath("items/slide.png"),
     deck: imagePath("grounds/deck.png"),
     umbrella: imagePath("items/umbrella.png"),
+    beachBall: imagePath("items/beachball.png"),
+    surfboard: imagePath("items/surfboard.png"),
+    lowBar: imagePath("items/lowbar.png"),
     casinoBackground: imagePath("backgrounds/casino.png"),
     slotMachine: imagePath("items/slot-machine.png"),
     rescueDoctor: imagePath("npc/dr-m.png"),
@@ -851,6 +862,15 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   };
   assets.umbrella.onload = () => {
     assets.umbrellaReady = true;
+  };
+  assets.beachBall.onload = () => {
+    assets.beachBallReady = true;
+  };
+  assets.surfboard.onload = () => {
+    assets.surfboardReady = true;
+  };
+  assets.lowBar.onload = () => {
+    assets.lowBarReady = true;
   };
   assets.casinoBackground.onload = () => {
     assets.casinoBackgroundReady = true;
@@ -881,6 +901,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   ensureLazyAssetLoaded("deck");
   ensureLazyAssetLoaded("umbrella");
   ensureLazyAssetLoaded("slide");
+  ensureLazyAssetLoaded("beachBall");
+  ensureLazyAssetLoaded("surfboard");
+  ensureLazyAssetLoaded("lowBar");
   ensureLazyAssetLoaded("rescueDoctor");
   levelBackgroundSources.forEach((source, index) => {
     assets.levelBackgrounds[index].onload = () => {
@@ -895,6 +918,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     height: 0,
     groundY: 0,
     cameraX: 0,
+    voyageDistance: 0,
     speed: config.startSpeed,
     score: 0,
     coins: 0,
@@ -1227,8 +1251,10 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     const levelId = getSelectedStartLevelId();
     const levelIndex = levelId - 1;
     const level = levels[levelIndex];
-    const threshold = getLevelStartScore(levelIndex);
-    const intro = threshold > 0 ? `Starts at ${threshold} score.` : "Starts fresh at score 0.";
+    const threshold = getLevelStartDistance(levelIndex);
+    const intro = threshold > 0
+      ? `Begins ${formatVoyageDistance(threshold)} into the voyage with score reset to 0.`
+      : "Starts fresh from the first port with score 0.";
     startLevelDetails.textContent = `${level.name}. ${intro}`;
     updateHeroPreview();
   }
@@ -1765,22 +1791,39 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     return world.levelIndex === 1;
   }
 
-  function getLevelStartScore(index = world.levelIndex) {
+  function getLevelStartDistance(index = world.levelIndex) {
     if (index <= 0) {
       return 0;
     }
-    const previousTarget = levels[index - 1].nextScore;
+    const previousTarget = levels[index - 1].nextDistance;
     return Number.isFinite(previousTarget) ? previousTarget : 0;
+  }
+
+  function formatVoyageDistance(distance) {
+    const safeDistance = Math.max(0, Number(distance) || 0);
+    if (safeDistance >= 1000) {
+      return `${(safeDistance / 1000).toFixed(1)} km`;
+    }
+    return `${Math.ceil(safeDistance)} m`;
+  }
+
+  function formatVoyageDistanceLong(distance) {
+    const safeDistance = Math.max(0, Number(distance) || 0);
+    if (safeDistance >= 1000) {
+      const km = safeDistance / 1000;
+      return `${km.toFixed(1)} kilometers`;
+    }
+    return `${Math.ceil(safeDistance)} meters`;
   }
 
   function getCurrentLevelProgress() {
     const level = getCurrentLevel();
-    const levelStart = getLevelStartScore();
-    if (!Number.isFinite(level.nextScore)) {
-      return Math.min(1, Math.max(0, (world.score - levelStart) / 18));
+    const levelStart = getLevelStartDistance();
+    if (!Number.isFinite(level.nextDistance)) {
+      return Math.min(1, Math.max(0, (world.voyageDistance - levelStart) / config.finalDestinationSpan));
     }
-    const span = Math.max(1, level.nextScore - levelStart);
-    return Math.max(0, Math.min(1, (world.score - levelStart) / span));
+    const span = Math.max(1, level.nextDistance - levelStart);
+    return Math.max(0, Math.min(1, (world.voyageDistance - levelStart) / span));
   }
 
   function announceLevelUp(level) {
@@ -1837,7 +1880,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     const normalizedId = normalizeLevelId(levelId, 1);
     const startingIndex = normalizedId - 1;
     world.levelIndex = startingIndex;
-    world.score = getLevelStartScore(startingIndex);
+    world.score = 0;
+    world.voyageDistance = getLevelStartDistance(startingIndex);
     world.coins = 0;
     world.lives = config.maxLives;
     world.combo.count = 0;
@@ -1866,11 +1910,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   function updateLevelProgression(options = {}) {
     const { announce = true } = options;
     const previousLevelIndex = world.levelIndex;
-    const nextTarget = levels[world.levelIndex]?.nextScore;
+    const nextTarget = levels[world.levelIndex]?.nextDistance;
     if (
       world.levelIndex < levels.length - 1 &&
       Number.isFinite(nextTarget) &&
-      world.score >= nextTarget
+      world.voyageDistance >= nextTarget
     ) {
       world.levelIndex += 1;
       unlockLevel(world.levelIndex + 1);
@@ -2040,6 +2084,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
   function resetWorld() {
     world.cameraX = 0;
+    world.voyageDistance = 0;
     world.speed = config.startSpeed;
     world.score = 0;
     world.coins = 0;
@@ -2471,11 +2516,12 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     stopMusicLoop();
     const preset = getActivePreset();
     const level = getCurrentLevel();
+    const voyageDistanceLabel = formatVoyageDistance(world.voyageDistance);
     const earnedAchievements = achievements
       .filter((entry) => world.score >= entry.score)
       .map((entry) => entry.label);
-    const nextDestinationHint = Number.isFinite(level.nextScore)
-      ? `${Math.max(0, level.nextScore - world.score)} more points unlocks Level ${level.id + 1}.`
+    const nextDestinationHint = Number.isFinite(level.nextDistance)
+      ? `${formatVoyageDistance(Math.max(0, level.nextDistance - world.voyageDistance))} more reaches Level ${level.id + 1}.`
       : "You reached the final destination.";
     const achievementText = earnedAchievements.length
       ? ` Achievements: ${earnedAchievements.join(", ")}.`
@@ -2564,6 +2610,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
       .join("<br>");
     runStats.innerHTML = `
       <h3>Run Statistics</h3>
+      <p>Voyage distance: ${voyageDistanceLabel}</p>
       <p>Coins this run: ${world.coins} (Bank: ${progressionState.coinBank})</p>
       <p>Combos triggered: ${world.stats.combosTriggered} · Longest streak: ${world.stats.longestCombo}</p>
       <p>Rescue tokens used: ${world.stats.rescueTokensUsed} · Quests completed this run: ${world.stats.questsCompleted}</p>
@@ -2600,7 +2647,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
     showOverlay(
       "Run Over",
-      `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. ${nextDestinationHint}${achievementText}${shareReasons.length ? ` Share unlocked (${shareReasons.join(", ")}).` : ""}`,
+      `You reached Level ${level.id} (${level.name}) with ${preset.name}. Final score: ${world.score}. Voyage distance: ${voyageDistanceLabel}. ${nextDestinationHint}${achievementText}${shareReasons.length ? ` Share unlocked (${shareReasons.join(", ")}).` : ""}`,
       "Quick Restart",
       sharePrompt,
       { preserveStats: true }
@@ -2780,7 +2827,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
   function getDifficulty() {
     const level = getCurrentLevel();
     const levelProgress = getCurrentLevelProgress();
-    if (!Number.isFinite(level.nextScore)) {
+    if (!Number.isFinite(level.nextDistance)) {
       return Math.min(1, level.difficulty + levelProgress * 0.2);
     }
     const nextLevel = levels[Math.min(levels.length - 1, world.levelIndex + 1)];
@@ -3403,12 +3450,12 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     scoreValue.textContent = String(world.score);
     const level = getCurrentLevel();
     applyDestinationTheme(level);
-    const pointsToNext = Number.isFinite(level.nextScore)
-      ? Math.max(0, level.nextScore - world.score)
+    const distanceToNext = Number.isFinite(level.nextDistance)
+      ? Math.max(0, level.nextDistance - world.voyageDistance)
       : null;
     levelValue.textContent = `Level ${level.id}`;
     nextLevelValue.textContent =
-      pointsToNext === null ? "Final destination reached" : `${pointsToNext} pts to L${level.id + 1}`;
+      distanceToNext === null ? "Final destination reached" : `${formatVoyageDistance(distanceToNext)} to L${level.id + 1}`;
     livesValue.textContent = String(Math.max(0, world.lives));
 
     const comboActive = world.combo.multiplier > 1 || world.speedBoostTimer > 0;
@@ -3435,9 +3482,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     }
 
     const destinationText =
-      pointsToNext === null
+      distanceToNext === null
         ? "Final destination reached."
-        : `${pointsToNext} points to Level ${level.id + 1}.`;
+        : `${formatVoyageDistanceLong(distanceToNext)} to Level ${level.id + 1}.`;
     const comboNarration = comboActive && comboValue ? ` Momentum ${comboValue.textContent}.` : "";
     const rescueNarration = rescueActive ? ` Rescue tokens ${world.rescueTokens}.` : "";
     const hudNarration = `Score ${world.score}. Lives ${world.lives}. Destination Level ${level.id}. ${destinationText}${comboNarration}${rescueNarration}`;
@@ -3453,6 +3500,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     const scaledDt = dt * accessibilityState.speedScale;
     world.elapsed += scaledDt;
     world.cameraX += world.speed * scaledDt;
+    world.voyageDistance += world.speed * scaledDt * config.distanceScale;
     world.speed = Math.min(config.maxSpeed, world.speed + scaledDt * (0.8 + getDifficulty() * 1.4));
     if (world.speedBoostTimer > 0) {
       world.speedBoostTimer = Math.max(0, world.speedBoostTimer - scaledDt);
@@ -3834,6 +3882,12 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
     );
   }
 
+  function drawLowBarSupports(x, obstacle) {
+    ctx.fillStyle = "rgba(111, 216, 255, 0.35)";
+    ctx.fillRect(x + 8, obstacle.y + obstacle.height, 5, 48);
+    ctx.fillRect(x + obstacle.width - 13, obstacle.y + obstacle.height, 5, 48);
+  }
+
   function drawObstacles() {
     for (const obstacle of world.obstacles) {
       const x = obstacle.x - world.cameraX;
@@ -3841,26 +3895,40 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
         continue;
       }
       if (obstacle.type === "beachBall") {
-        ctx.fillStyle = "#ff9a42";
-        ctx.beginPath();
-        ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#fff6d5";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.32, 0, Math.PI * 2);
-        ctx.stroke();
+        if (assets.beachBallReady) {
+          ctx.drawImage(assets.beachBall, x, obstacle.y, obstacle.width, obstacle.height);
+        } else {
+          ctx.fillStyle = "#ff9a42";
+          ctx.beginPath();
+          ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#fff6d5";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(x + obstacle.width * 0.5, obstacle.y + obstacle.height * 0.5, obstacle.width * 0.32, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       } else if (obstacle.type === "surfboard") {
-        ctx.fillStyle = "#ef5f83";
-        fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 14);
-        ctx.fillStyle = "#ffe4b4";
-        ctx.fillRect(x + 14, obstacle.y + 10, obstacle.width - 28, 4);
+        if (assets.surfboardReady) {
+          drawImageCover(assets.surfboard, x, obstacle.y, obstacle.width, obstacle.height);
+        } else {
+          ctx.fillStyle = "#ef5f83";
+          fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 14);
+          ctx.fillStyle = "#ffe4b4";
+          ctx.fillRect(x + 14, obstacle.y + 10, obstacle.width - 28, 4);
+        }
       } else if (obstacle.type === "lowBar") {
-        ctx.fillStyle = "#6fd8ff";
-        fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 8);
-        ctx.fillStyle = "rgba(111, 216, 255, 0.35)";
-        ctx.fillRect(x + 8, obstacle.y + obstacle.height, 5, 48);
-        ctx.fillRect(x + obstacle.width - 13, obstacle.y + obstacle.height, 5, 48);
+        if (assets.lowBarReady) {
+          const visualWidth = obstacle.width + 56;
+          const visualHeight = Math.max(96, world.groundY - obstacle.y + 12);
+          const visualX = x - (visualWidth - obstacle.width) * 0.5;
+          const visualY = obstacle.y - 6;
+          ctx.drawImage(assets.lowBar, visualX, visualY, visualWidth, visualHeight);
+        } else {
+          ctx.fillStyle = "#6fd8ff";
+          fillRoundedRect(x, obstacle.y, obstacle.width, obstacle.height, 8);
+          drawLowBarSupports(x, obstacle);
+        }
       }
     }
   }
@@ -4365,7 +4433,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
           ? "Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. Here are the full release notes."
           : hasUnseen
           ? `Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. New in v${releaseState.currentVersion}:`
-          : "Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. Level milestones are 8, 18, 31, and 46 points.",
+          : "Mission guide: Collect drinks, chain combos, and dodge walls with jump/double-jump/slide. You have 3 lives with checkpoints every 5 points. Destinations now unlock by voyage distance instead of score.",
         triggerEl: helpButton,
         markSeen: hasUnseen
       });
