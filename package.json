@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test --experimental-test-coverage tests/game-logic.test.js"
+    "test": "node --test --experimental-test-coverage tests",
+    "mobile:ios:validate": "./scripts/ios/validate-env.sh",
+    "mobile:ios:build": "./scripts/ios/build-ios.sh production",
+    "mobile:ios:build:preview": "./scripts/ios/build-ios.sh preview",
+    "mobile:ios:submit": "./scripts/ios/submit-ios.sh production"
   }
 }
