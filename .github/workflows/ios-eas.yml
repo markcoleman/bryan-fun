@@ -1,0 +1,50 @@
+name: ios-eas
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS profile (preview|production)"
+        required: true
+        default: "preview"
+      submit_to_app_store:
+        description: "Submit resulting build to App Store Connect"
+        required: true
+        default: "false"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/mobile/**"
+      - "scripts/ios/**"
+      - ".github/workflows/ios-eas.yml"
+
+jobs:
+  ios-build:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+      ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package.json
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Validate iOS build env
+        run: ./scripts/ios/validate-env.sh
+
+      - name: Build iOS artifact on EAS
+        run: ./scripts/ios/build-ios.sh "${{ github.event.inputs.profile || 'preview' }}"
+
+      - name: Submit to App Store Connect
+        if: ${{ github.event.inputs.submit_to_app_store == 'true' }}
+        run: ./scripts/ios/submit-ios.sh production

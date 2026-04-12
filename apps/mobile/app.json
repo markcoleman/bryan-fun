@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Bryan's Bonkers Cruise Dash",
+    "slug": "bryan-fun-mobile",
+    "scheme": "bryanfun",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bryanfun.cruisedash"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

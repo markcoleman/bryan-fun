@@ -19,11 +19,24 @@ Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the r
 - Unlocked levels persist in local storage and can be selected as the next run's starting level.
 - Includes simple parallax background layers.
 
+## Cross-platform strategy (Web + iOS)
+
+The project now supports a portable delivery strategy:
+
+- **Web runtime** remains deployable as static assets (`index.html` + `src/*`) for GitHub Pages/any static host.
+- **iOS runtime** is scaffolded in `apps/mobile/` with Expo React Native to enable App Store delivery.
+- **Shared progression sync utilities** live in `src/sync-profile.js` and are reusable by both web and mobile clients.
+
+See `docs/mobile-web-sync-strategy.md` for merge/conflict rules and rollout guidance.
+
 ## Project Structure
 
 - `index.html`: app shell and UI markup.
 - `src/game.js`: gameplay logic and rendering.
-- `src/style.css`: layout and visual styles.
+- `src/game-logic.js`: deterministic gameplay helpers and progression logic.
+- `src/sync-profile.js`: cross-platform profile sync merge helpers.
+- `apps/mobile/`: Expo React Native iOS app starter.
+- `tests/`: Node unit tests for gameplay + sync rules.
 - `assets/images/`: organized art assets by category:
   - `characters/`: player runner sprites
   - `items/`: pickups and obstacle sprites
@@ -41,7 +54,40 @@ Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the r
 
 ## Run locally
 
-Open [index.html](/Users/markcoleman/Development/github/bryan-fun/index.html) in a browser.
+### Web
+
+Open `index.html` in a browser, or run a simple static server.
+
+### Tests
+
+- `npm test` runs Node.js tests for both game logic and cross-platform sync logic.
+
+### iOS app scaffold (Expo)
+
+```bash
+cd apps/mobile
+npm install
+npm run ios
+```
+
+This starts the React Native iOS target (Xcode required for local simulator builds).
+
+
+## iOS build + App Store delivery (DevOps)
+
+- EAS profiles are defined in `apps/mobile/eas.json`.
+- Local helper scripts are in `scripts/ios/` for validation, build, and submission.
+- CI workflow for cloud build + optional App Store submit is in `.github/workflows/ios-eas.yml`.
+- Full process/checklist: `docs/ios-devops-delivery.md`.
+
+Common commands from repo root:
+
+```bash
+npm run mobile:ios:validate
+npm run mobile:ios:build:preview
+npm run mobile:ios:build
+npm run mobile:ios:submit
+```
 
 ## Optional Supabase account flows
 
@@ -56,35 +102,10 @@ The game now supports optional email/password account creation and sign-in using
   - **Create Account** (email + password)
   - **Sign In**
   - **Sign Out**
-- If email confirmation is enabled in Supabase, the sign-up flow uses these redirect targets:
-  - Dev: `http://localhost:8080/`
-  - Prod: `https://markcoleman.github.io/bryan-fun/`
-- If no anon key is configured, account controls stay disabled and gameplay remains fully local.
-
-## GitHub Actions
-
-- CI workflow: [ci.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/ci.yml)
-  - Verifies required files exist.
-  - Installs dependencies from the committed lock file (`npm ci`).
-  - Checks JavaScript syntax with `node --check`.
-  - Runs Node.js unit tests with coverage via `npm test`.
-  - Runs `npm audit` with a high-severity threshold.
-- Deployment workflow: [deploy-pages.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/deploy-pages.yml)
-  - Publishes the static site to GitHub Pages on pushes to `main`.
-- Performance workflow: [performance.yml](/Users/markcoleman/Development/github/bryan-fun/.github/workflows/performance.yml)
-  - Runs Lighthouse CI on pull requests and manual dispatches.
-  - Publishes Lighthouse artifacts for UX/performance visibility.
-- Dependabot: [.github/dependabot.yml](/Users/markcoleman/Development/github/bryan-fun/.github/dependabot.yml)
-  - Weekly updates for devcontainer config, GitHub Actions, and npm dependencies.
-  - Groups test/quality tooling updates to reduce PR noise.
-
 
 ## Performance and delivery optimizations
 
-- Non-critical large textures are now lazy-loaded at runtime to reduce initial page payload and improve first render time.
-- Shared gameplay math and version helpers live in `src/game-logic.js` to keep core runtime logic cleaner and easier to maintain/test.
+- Non-critical large textures are lazy-loaded at runtime to reduce initial page payload and improve first render time.
+- Shared gameplay math/version helpers live in `src/game-logic.js`.
+- Shared cross-device progression merge helpers live in `src/sync-profile.js`.
 - Uses the open-source `canvas-confetti` package for level-up and achievement celebrations.
-
-## Testing
-
-- `npm test` runs the Node.js test runner with built-in test coverage output for `tests/game-logic.test.js`.

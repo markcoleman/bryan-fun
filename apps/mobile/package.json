@@ -1,0 +1,23 @@
+{
+  "name": "bryan-fun-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "web": "expo start --web",
+    "eas:build:ios:preview": "eas build --platform ios --profile preview",
+    "eas:build:ios:production": "eas build --platform ios --profile production",
+    "eas:submit:ios": "eas submit --platform ios --profile production --latest"
+  },
+  "dependencies": {
+    "expo": "~53.0.0",
+    "expo-router": "~5.0.0",
+    "react": "19.0.0",
+    "react-native": "0.79.0",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "4.11.1"
+  }
+}
