@@ -1,1 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 1920 1080"><defs><linearGradient id="a" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#ff7e73"/><stop offset="56%" stop-color="#ffb59f"/><stop offset="100%" stop-color="#ffd7cb"/></linearGradient></defs><path fill="url(#a)" d="M0 0h1920v1080H0z"/><path fill="#b86ed0" d="M0 710h1920v370H0z"/><path fill="#8f58be" d="M0 760h1920v320H0z" opacity=".5"/><path fill="#5e377f" d="M160 860h64V680h-22l-18 180zm90 0h70V610h-24l-20 250zm1230 0h66V650h-22l-18 210zm98 0h74V570h-26l-20 290z" opacity=".7"/><path fill="#f4b784" d="M0 680c220-40 480-40 760 20s560 60 860 0c140-30 220-40 300-35v95H0Z" opacity=".82"/><path fill="#ca9473" d="M0 860h1920v220H0z"/><path stroke="#a86e5a" stroke-width="10" d="M0 930h1920M0 990h1920M0 1040h1920" opacity=".4"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1024">
+  <image href="level-5-miami.png" width="1536" height="1024"/>
+</svg>

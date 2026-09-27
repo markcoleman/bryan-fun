@@ -1,111 +1,69 @@
-# Bryan's Bonkers Cruise Dash
+# Bryan’s Bonkers Cruise Dash
 
-Mobile-friendly side-scrolling HTML/JS game where a character auto-runs to the right.
+A polished browser runner about being very late for the buffet. Original adult-sitcom cartoon characters and cruise destinations, two simple actions, and enough luggage to ruin everyone's day.
 
-## Gameplay
+## Play
 
-- Jump over walls.
-- Play as `assets/images/characters/bryan.png` as the main character.
-- Collect `assets/images/items/drink.png` while jumping.
-- Every drink collected increases running speed.
-- Destination leveling progression: Level 1 Existing Cruise Deck, Level 2 Island Adventure with Adults-Only Pool, Level 3 Bahamas, Level 4 Cruise Deck, Level 5 Miami.
-- Reaching each voyage-distance milestone restarts the stage layout at the newly unlocked destination while preserving your current speed momentum.
-- Each level uses a different full-screen background image.
-- Level 2 uses a parallax beach setup: `assets/images/backgrounds/beach-background.png` (background) and `assets/images/grounds/beach.png` (ground).
-- Level 3 uses: `assets/images/backgrounds/beach-background.png` (background) and `assets/images/grounds/bahamas.png` (ground).
-- Level 5 uses: `assets/images/backgrounds/miami-background.png` (background) and `assets/images/grounds/miami.png` (ground).
-- Level 4 features a cruise ship pass that starts on the right and sails left across the scene.
-- The slide obstacle is tuned for fairness and appears only in Level 2.
-- Unlocked levels persist in local storage and can be selected as the next run's starting level.
-- Includes simple parallax background layers.
+- **Jump:** Space, ↑, W, click/tap the game, or the Jump button. Hold for height, release for a shorter hop.
+- **Duck:** ↓, S, Shift, or tap Duck. Duck automatically lasts a moment.
+- **Pause:** P, Escape, or the pause button. Switching apps or rotating the screen pauses automatically.
+- Jump luggage and buffet carts; duck seagulls. Later double baggage needs a well-timed held jump.
+- Collect espresso martinis for a three-second protected speed boost. Choose Barbra to select her Morning Beer signature power instead; both give the same speed and protection.
+- Collect donuts for streak multipliers. Clear obstacles and travel through five ports. At 1,250 m, complete the voyage and keep sailing.
 
-## Cross-platform strategy (Web + iOS)
+Play as Bryan, Barbra, or Kyle. Identical physics means the argument stays about skill.
 
-The project now supports a portable delivery strategy:
+| Departure       | Loop                                                                               |
+| --------------- | ---------------------------------------------------------------------------------- |
+| Endless dash    | One life. Instant same-route retries; fresh routes from boarding.                  |
+| Daily departure | Shared UTC daily seed and a saved daily personal best.                             |
+| Pass & play     | 2–6 friends on the same device, same course, turn handoff, scoreboard and rematch. |
+| Easy breezy     | Slower pace, three lives, separate practice record.                                |
 
-- **Web runtime** remains deployable as static assets (`index.html` + `src/*`) for GitHub Pages/any static host.
-- **iOS runtime** is scaffolded in `apps/mobile/` with Expo React Native to enable App Store delivery.
-- **Shared progression sync utilities** live in `src/sync-profile.js` and are reusable by both web and mobile clients.
+Earn six passport stamps, chase personal bests, or share a result as a seeded friend challenge. Progress saves locally without accounts. Challenge targets are honor-system scores, not a global leaderboard.
 
-See `docs/mobile-web-sync-strategy.md` for merge/conflict rules and rollout guidance.
+## Develop
 
-## Project Structure
+Requires Node 20.9+ (CI uses 22).
 
-- `index.html`: app shell and UI markup.
-- `src/game.js`: gameplay logic and rendering.
-- `src/game-logic.js`: deterministic gameplay helpers and progression logic.
-- `src/sync-profile.js`: cross-platform profile sync merge helpers.
-- `apps/mobile/`: Expo React Native iOS app starter.
-- `tests/`: Node unit tests for gameplay + sync rules.
-- `assets/images/`: organized art assets by category:
-  - `characters/`: player runner sprites
-  - `items/`: pickups and obstacle sprites
-  - `backgrounds/`: layered background textures
-  - `grounds/`: ground/deck textures
-  - `levels/`: SVG destination backdrops
-  - `ui/`: splash/menu art
-  - `npc/`: non-player character sprites
-
-## Controls
-
-- `Space`, `Arrow Up`, or `W` to jump.
-- Tap/click the game canvas to jump.
-- On mobile, use the on-screen `Jump` button.
-
-## Run locally
-
-### Web
-
-Open `index.html` in a browser, or run a simple static server.
-
-### Tests
-
-- `npm test` runs Node.js tests for both game logic and cross-platform sync logic.
-
-### iOS app scaffold (Expo)
-
-```bash
-cd apps/mobile
-npm install
-npm run ios
+```sh
+npm ci
+npm run dev
 ```
 
-This starts the React Native iOS target (Xcode required for local simulator builds).
+Open `http://127.0.0.1:8080`. Use `PORT=8081 npm run dev` if needed. ES modules require serving over HTTP; opening the HTML as a `file:` URL is unsupported.
 
-
-## iOS build + App Store delivery (DevOps)
-
-- EAS profiles are defined in `apps/mobile/eas.json`.
-- Local helper scripts are in `scripts/ios/` for validation, build, and submission.
-- CI workflow for cloud build + optional App Store submit is in `.github/workflows/ios-eas.yml`.
-- Full process/checklist: `docs/ios-devops-delivery.md`.
-
-Common commands from repo root:
-
-```bash
-npm run mobile:ios:validate
-npm run mobile:ios:build:preview
-npm run mobile:ios:build
-npm run mobile:ios:submit
+```sh
+npm run validate      # syntax, asset/DOM contracts, tests, production build
+npm run format:check  # formatting
+npm run format        # format sources
+npm run preview       # serve dist after a build
+npm run art:prepare   # export approved PNG masters to runtime WebP
 ```
 
-## Optional Supabase account flows
+There are no runtime dependencies or external font/CDN requests. Prettier handles formatting; Sharp exports approved art masters with `npm run art:prepare`. Neither ships to players.
 
-The game now supports optional email/password account creation and sign-in using Supabase Auth.
+Development art inspector: open `/tools/art-review.html` to inspect poses, props, all five scrolling destinations, phone framing, and Espresso Rush. It does not ship in the production bundle.
 
-- Supabase project URL is set to `https://gzigwxvukzxyfphuzmmy.supabase.co` (Project: **Bryan-bash**, Org: **Kramnameloc**).
-- Add your Supabase anon key by setting `window.__SUPABASE_ANON_KEY__` before loading `src/game.js`, or pass it once in the URL:
-  - `http://localhost:8080/?sbAnonKey=YOUR_ANON_KEY`
-  - `https://markcoleman.github.io/bryan-fun/?sbAnonKey=YOUR_ANON_KEY`
-- The key from `sbAnonKey` is stored in local storage under `bbcd:supabaseAnonKey`.
-- In **Settings**, use:
-  - **Create Account** (email + password)
-  - **Sign In**
-  - **Sign Out**
+## Delivery
 
-## Performance and delivery optimizations
+`npm run build` creates an allowlisted `dist/` bundle, approximately 2.5 MB including all art. Publish **dist**, not the repository root. The GitHub Pages workflow builds and validates before publishing. Relative paths support a repository subdirectory.
 
-- Non-critical large textures are lazy-loaded at runtime to reduce initial page payload and improve first render time.
-- Shared gameplay math/version helpers live in `src/game-logic.js`.
-- Shared cross-device progression merge helpers live in `src/sync-profile.js`.
-- Uses the open-source `canvas-confetti` package for level-up and achievement celebrations.
+The same game runs in desktop, mobile, and tablet browsers. Production builds include home-screen install metadata and a content-versioned offline cache. Offline play requires one successful online load. Development stays uncached. Native store apps and cloud synchronization are not included; the previous Expo profile-sync demo and disconnected account prototype have been removed.
+
+## Structure and iteration
+
+- [AGENTS.md](AGENTS.md): agent instructions, module boundaries, invariants, commands.
+- [Design review](docs/game-design-review.md): findings, changes, reasons, and remaining design uncertainty.
+- [Art direction](docs/art-direction.md): sitcom style, production assets, source prompts and import contract.
+- [Playtesting](docs/playtest.md): browser/device and human-fun checklist.
+- `src/content.js`: characters, hazards, ports, stamps and tuning.
+- `src/engine.js`: deterministic simulation; `src/game.js`: UI/input/run lifecycle.
+- `src/renderer.js`: sprites, scenery and effects; `src/animation.js`: pose and parallax geometry; `src/audio.js`: synthesized sounds.
+- `src/profile.js`: validated saves and legacy record preservation.
+- `assets/cartoon/`: active compressed art; `source/`: original generated masters, excluded from deployment.
+- `assets/images/`: earlier user artwork, preserved but excluded from the runtime and production bundle.
+
+New scoring uses `bbcd:sketch:v1`; earlier `bbcd:profile:v2` data remains untouched. The old best is shown separately because the scoring systems are not comparable. Corrupt or unavailable storage falls back to an in-memory session.
+
+The `buffet-2` ruleset adds Espresso Rush and full-size crouch clearance. Existing preferences and stamps survive; old scores are preserved as the previous-edition best, and competitive records start separately.
