@@ -1,12 +1,24 @@
 {
   "name": "bryan-fun",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
-    "test": "node --test --experimental-test-coverage tests",
-    "mobile:ios:validate": "./scripts/ios/validate-env.sh",
-    "mobile:ios:build": "./scripts/ios/build-ios.sh production",
-    "mobile:ios:build:preview": "./scripts/ios/build-ios.sh preview",
-    "mobile:ios:submit": "./scripts/ios/submit-ios.sh production"
+    "dev": "node scripts/serve.mjs",
+    "preview": "node scripts/serve.mjs --dist",
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "node --test --experimental-test-coverage tests/*.test.js",
+    "validate": "npm run check && npm test && npm run build",
+    "format": "prettier --write index.html src scripts tests docs tools readme.md AGENTS.md",
+    "format:check": "prettier --check index.html src scripts tests docs tools readme.md AGENTS.md",
+    "art:prepare": "node scripts/prepare-art.mjs"
+  },
+  "devDependencies": {
+    "prettier": "3.5.3",
+    "sharp": "0.35.4"
   }
 }

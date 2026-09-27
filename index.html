@@ -1,240 +1,414 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Bryan's Bonkers Cruise Dash</title>
-  <meta name="description" content="Bryan's Bonkers Cruise Dash: jump walls, collect drinks, and zoom across the deck.">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Bryan's Bonkers Cruise Dash">
-  <meta property="og:description" content="Jump walls, collect drinks, and run faster.">
-  <meta property="og:image" content="assets/images/characters/bryan.png">
-  <meta property="og:image:alt" content="Bryan character from Bryan's Bonkers Cruise Dash">
-  <meta property="og:image:width" content="677">
-  <meta property="og:image:height" content="846">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Bryan's Bonkers Cruise Dash">
-  <meta name="twitter:description" content="Jump walls, collect drinks, and run faster.">
-  <meta name="twitter:image" content="assets/images/characters/bryan.png">
-  <link rel="stylesheet" href="src/style.css">
-  <script>
-    window.__SUPABASE_ANON_KEY__ = "sb_publishable_d977wobGUWEuvuqLp-F-Ag_r8B13cIe";
-  </script>
-</head>
-<body>
-  <main class="game-shell">
-    <canvas id="gameCanvas" aria-label="Side-scrolling runner game"></canvas>
-    <section class="hud" aria-live="polite">
-      <div class="hud-primary">
-        <div class="hud-item hud-item-score">
-          <span class="hud-label">Score</span>
-          <span id="scoreValue" class="hud-value">0</span>
-        </div>
-        <div class="hud-item hud-item-lives">
-          <span class="hud-label">Lives</span>
-          <span id="livesValue" class="hud-value">3</span>
-        </div>
-        <div class="hud-item hud-item-destination">
-          <span class="hud-label">Destination</span>
-          <span id="levelValue" class="hud-value hud-value-destination">Level 1</span>
-          <span id="nextLevelValue" class="hud-detail">300 m to L2</span>
-        </div>
-      </div>
-      <div class="hud-statuses">
-        <div id="comboHudItem" class="hud-chip hidden">
-          <span class="hud-chip-label">Momentum</span>
-          <span id="comboValue" class="hud-chip-value">Combo x1.0</span>
-        </div>
-        <div id="rescueHudItem" class="hud-chip hidden">
-          <span class="hud-chip-label">Rescue</span>
-          <span id="rescueValue" class="hud-chip-value">1 token</span>
-        </div>
-      </div>
-    </section>
-    <section class="overlay hidden" id="overlay">
-      <div class="overlay-card">
-        <div class="hero-marquee">
-          <div class="hero-copy">
-            <p class="hero-kicker">All Aboard The Bonkers Route</p>
-            <h1 class="title">Bryan's Bonkers Cruise Dash</h1>
-            <p class="subtitle">Jump the deck hazards, collect drinks, and build enough momentum to cruise from port to port.</p>
-            <div class="hero-facts" aria-label="Current voyage setup">
-              <article class="hero-fact">
-                <span class="hero-fact-label">Runner</span>
-                <span id="heroRunnerSummary" class="hero-fact-value">Bryan</span>
-              </article>
-              <article class="hero-fact">
-                <span class="hero-fact-label">Port Of Call</span>
-                <span id="heroDestinationSummary" class="hero-fact-value">Existing Cruise Deck</span>
-              </article>
-              <article class="hero-fact">
-                <span class="hero-fact-label">Perk</span>
-                <span id="heroPerkSummary" class="hero-fact-value">Safe Landing</span>
-              </article>
-            </div>
-            <p id="heroRouteSummary" class="hero-route-summary">Fresh departure from the Existing Cruise Deck.</p>
-          </div>
-          <div class="hero-scene" aria-hidden="true">
-            <div class="hero-scene-backdrop"></div>
-            <div class="hero-sun"></div>
-            <div class="hero-gulls">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="hero-ship"></div>
-            <div class="hero-wave hero-wave-back"></div>
-            <img
-              id="heroRunnerImage"
-              class="hero-runner"
-              src="assets/images/characters/bryan.png"
-              alt=""
-              draggable="false"
-            >
-            <div class="hero-wave hero-wave-front"></div>
-          </div>
-        </div>
-        <section class="menu-panels">
-          <section id="mainMenuScreen" class="menu-screen" aria-label="Main menu">
-            <div class="menu-panel menu-panel-setup">
-              <div class="menu-panel-header">
-                <div>
-                  <p class="menu-panel-title">Ready To Sail</p>
-                  <p class="boarding-copy">Tap into the run fast, then tweak the voyage only if you want to.</p>
-                </div>
-              </div>
-              <details class="voyage-customizer">
-                <summary>Customize Voyage</summary>
-                <div class="voyage-customizer-grid">
-                  <div class="character-picker">
-                    <label for="characterSelect">Runner</label>
-                    <select id="characterSelect">
-                      <option value="bryan">Bryan + Pill</option>
-                      <option value="barbra">Barbra + Morning Beer</option>
-                      <option value="kyle">Kyle + Champagne</option>
-                    </select>
-                    <p id="characterDetails" class="character-details"></p>
-                  </div>
-                  <div class="start-level-picker">
-                    <label for="startLevelSelect">Start Level</label>
-                    <select id="startLevelSelect">
-                      <option value="1">Level 1 - Existing Cruise Deck</option>
-                    </select>
-                    <p id="startLevelDetails" class="start-level-details"></p>
-                  </div>
-                  <div class="perk-picker">
-                    <label for="perkSelect">Perk Loadout</label>
-                    <select id="perkSelect">
-                      <option value="safe_landing">Safe Landing</option>
-                      <option value="combo_shield">Combo Shield</option>
-                      <option value="lucky_pull">Lucky Pull</option>
-                    </select>
-                    <p id="perkDetails" class="perk-details"></p>
-                  </div>
-                </div>
-              </details>
-            </div>
-          </section>
-          <section id="settingsMenuScreen" class="menu-screen hidden" aria-label="Settings menu">
-            <div class="menu-panel menu-panel-settings">
-              <p class="menu-panel-title">Settings</p>
-              <div class="accessibility-options">
-                <label for="controlSchemeSelect">Controls</label>
-                <select id="controlSchemeSelect">
-                  <option value="right">Space / W / ↑ / ↓</option>
-                  <option value="left">Space / W / ↑ / ←</option>
-                </select>
-                <label for="speedScaleSelect">Game Speed</label>
-                <select id="speedScaleSelect">
-                  <option value="0.85">Relaxed (85%)</option>
-                  <option value="1" selected>Normal (100%)</option>
-                  <option value="1.15">Fast (115%)</option>
-                </select>
-                <label class="checkbox-row" for="contrastToggle">
-                  <input id="contrastToggle" type="checkbox">
-                  High Contrast HUD
-                </label>
-                <label for="musicVolumeRange">Music Volume</label>
-                <input id="musicVolumeRange" type="range" min="0" max="100" step="5" value="70">
-                <label for="sfxVolumeRange">SFX Volume</label>
-                <input id="sfxVolumeRange" type="range" min="0" max="100" step="5" value="80">
-              </div>
-              <section class="menu-panel menu-panel-help" aria-label="Help and notes">
-                <p class="menu-panel-title">Help &amp; Notes</p>
-                <p class="settings-support-copy">
-                  Learn the mission, review the latest updates, and check optional progression details without crowding the start screen.
-                </p>
-                <button
-                  id="helpButton"
-                  class="menu-nav-button menu-help"
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-controls="notesDialog"
-                >
-                  Open Help &amp; Notes
-                </button>
-              </section>
-              <section class="account-options" aria-label="Optional account sign in">
-                <p class="account-options-title">Optional Cloud Account (Supabase)</p>
-                <p id="authStatus" class="auth-status" aria-live="polite">Not signed in.</p>
-                <div class="auth-grid">
-                  <label for="authEmailInput">Email</label>
-                  <input id="authEmailInput" type="email" autocomplete="email" placeholder="you@example.com">
-                  <label for="authPasswordInput">Password</label>
-                  <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters">
-                </div>
-                <div class="auth-actions">
-                  <button id="createAccountButton" class="menu-nav-button auth-button" type="button">Create Account</button>
-                  <button id="signInButton" class="menu-nav-button auth-button" type="button">Sign In</button>
-                  <button id="signOutButton" class="menu-nav-button auth-button" type="button">Sign Out</button>
-                </div>
-                <p class="auth-note">
-                  Account is optional. Leave unsigned to keep playing locally on this device.
-                </p>
-              </section>
-            </div>
-            <button id="settingsBackButton" class="menu-nav-button settings-back" type="button">
-              Back to Main Menu
-            </button>
-          </section>
-        </section>
-        <div class="overlay-actions">
-          <button id="actionButton" type="button">Start Run</button>
-          <button
-            id="settingsButton"
-            class="menu-nav-button"
-            type="button"
-            aria-controls="settingsMenuScreen"
-            aria-expanded="false"
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f5f0e4" />
+    <title>Bryan’s Bonkers Cruise Dash — One more run.</title>
+    <meta
+      name="description"
+      content="A hand-drawn holiday disaster. Jump luggage, duck seagulls, chase donuts, and challenge your crew in a delightfully chaotic cruise runner."
+    />
+    <meta property="og:title" content="Bryan’s Bonkers Cruise Dash" />
+    <meta
+      property="og:description"
+      content="Tiny legs. Big buffet energy. How far can your crew get?"
+    />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/cartoon/icon-192.png" />
+    <link rel="icon" href="assets/cartoon/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="src/style.css?v=3" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="masthead">
+        <a class="brand" href="./" aria-label="Bryan’s Bonkers Cruise Dash home"
+          ><img
+            src="assets/cartoon/favicon.svg"
+            alt=""
+            width="42"
+            height="42"
+          /><span
+            >BRYAN’S BONKERS<span class="brand-small">CRUISE DASH</span></span
+          ></a
+        >
+        <span class="edition"
+          >A VERY UNRELAXING VACATION
+          <span>— EST. FIVE MINUTES LATE</span></span
+        >
+        <nav aria-label="Game options">
+          <button id="helpButton" class="icon-button" aria-label="How to play">
+            ?</button
+          ><button
+            id="soundButton"
+            class="icon-button sound-button"
+            aria-label="Sound effects"
+            aria-pressed="true"
           >
-            Settings
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9h4l5-4v14l-5-4H4zM17 8q5 4 0 8" />
+            </svg></button
+          ><button
+            id="settingsButton"
+            class="icon-button"
+            aria-label="Settings"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 4v16M12 4v16M19 4v16M2 9h6m1 7h6m1-9h6" />
+            </svg>
           </button>
-          <a id="shareLink" class="share-link hidden" href="#" target="_blank" rel="noopener">
-            Share Score
-          </a>
+        </nav>
+      </header>
+
+      <section class="above-game" id="introLine">
+        <p><span class="live-dot"></span> NOW BOARDING: ABSOLUTE NONSENSE</p>
+        <span id="bestLabel">YOUR BEST <b>0</b></span>
+      </section>
+
+      <section class="arena" id="arena" aria-label="Cruise Dash game">
+        <canvas
+          id="gameCanvas"
+          tabindex="0"
+          aria-label="Cruise runner. Space or Up to jump, Down to duck, P to pause. Touch controls follow the game."
+          >Your browser needs Canvas support to play Cruise Dash.</canvas
+        >
+        <div class="home-content" id="homeScreen">
+          <div class="home-copy">
+            <p class="eyebrow">WELCOME TO YOUR NEXT “ONE MORE GO”</p>
+            <h1>Holiday plans.<br /><em>Overboard.</em></h1>
+            <p class="hero-description">
+              The buffet’s closing. Your crew is chaos.<br />Run like there’s
+              one donut left.
+            </p>
+            <button class="primary start-button" id="startButton" disabled>
+              Preparing the deck…
+            </button>
+            <p class="start-note">
+              <span>↑ JUMP</span><span>↓ DUCK</span
+              ><span>REPEAT QUESTIONABLE DECISIONS</span>
+            </p>
+          </div>
+          <div class="scene-sticker" aria-hidden="true">
+            100% chance<br />of shenanigans<span>✦</span>
+          </div>
+          <div class="character-speech" id="characterSpeech" aria-hidden="true">
+            “I heard there were snacks.”
+          </div>
+          <div class="boarding-label" aria-hidden="true">
+            S.S. POOR DECISIONS <span>↗</span>
+          </div>
         </div>
-        <section id="runStats" class="run-stats hidden" aria-live="polite"></section>
+        <div id="playHud" class="play-hud" hidden>
+          <div class="score-ticket">
+            <span class="eyebrow">SCORE</span><strong id="scoreValue">0</strong
+            ><span id="bestInRun">BEST 0</span>
+          </div>
+          <div class="destination-ticket">
+            <span id="portValue">THE SUN DECK</span
+            ><strong id="distanceValue">0 m</strong>
+            <div class="route-track"><span id="routeProgress"></span></div>
+          </div>
+          <button
+            class="icon-button pause-button"
+            id="pauseButton"
+            aria-label="Pause game"
+          >
+            Ⅱ
+          </button>
+          <div class="streak-ticket" id="streakValue">
+            ◎ 0 <span>DONUTS</span>
+          </div>
+          <span class="lives-ticket" id="livesValue" hidden>3 lives</span>
+          <div class="boost-ticket" id="boostTicket" hidden>
+            <strong id="boostName">ESPRESSO RUSH</strong
+            ><span id="boostTime">3.0 s · protected</span>
+            <div class="boost-track"><span id="boostProgress"></span></div>
+          </div>
+        </div>
+        <p id="gameToast" class="game-toast" role="status" hidden></p>
+        <div class="game-overlay" id="pauseScreen" hidden>
+          <div class="postcard small-postcard">
+            <p class="eyebrow">A QUICK DECK BREAK</p>
+            <h2>Catch your breath.</h2>
+            <p>The donuts can wait. Just this once.</p>
+            <button id="resumeButton" class="primary">
+              Back to the chaos →</button
+            ><button class="text-button" id="pauseHomeButton">
+              End run & return to boarding
+            </button>
+          </div>
+        </div>
+        <div class="game-overlay" id="resultScreen" hidden>
+          <div class="postcard result-postcard">
+            <p class="eyebrow" id="resultEyebrow">WISH YOU’D JUMPED EARLIER</p>
+            <h2 id="resultTitle">Excess baggage.</h2>
+            <p class="result-quip" id="resultTip"></p>
+            <div class="result-stats">
+              <div>
+                <strong id="resultScore">0</strong><span>POINTS OF GLORY</span>
+              </div>
+              <div>
+                <b id="resultDistance">0 m</b
+                ><span id="resultSnacks">0 donuts</span>
+              </div>
+              <div class="medal" id="resultMedal"></div>
+            </div>
+            <p id="unlockMessage" class="unlock-message" hidden></p>
+            <div id="partyResults" hidden></div>
+            <button class="primary" id="retryButton">One more go ↗</button>
+            <div class="result-actions">
+              <button id="shareButton" class="secondary">
+                Challenge a friend</button
+              ><button id="resultHomeButton" class="text-button">
+                Back to boarding
+              </button>
+            </div>
+            <p class="share-status" id="shareStatus" role="status"></p>
+            <input
+              id="shareFallback"
+              aria-label="Copy this challenge link"
+              readonly
+              hidden
+            />
+          </div>
+        </div>
+        <span class="scene-caption" id="sceneCaption"
+          >SUNSHINE. SEA AIR. AVOIDABLE INCIDENTS.</span
+        >
+      </section>
+
+      <section
+        class="touch-controls"
+        id="touchControls"
+        aria-label="Touch controls"
+        hidden
+      >
+        <button id="duckButton">
+          <span>↓</span> Duck <small>TAP FOR SEAGULLS</small></button
+        ><button id="jumpButton">
+          <span>↑</span> Jump <small>HOLD TO GO HIGHER</small>
+        </button>
+      </section>
+      <div class="play-footnote" id="playFootnote" hidden>
+        <span
+          ><kbd>SPACE</kbd> / <kbd>↑</kbd> jump · <kbd>↓</kbd> duck ·
+          <kbd>P</kbd> pause</span
+        ><span id="runModeLabel">One life. Make it ridiculous.</span>
       </div>
-    </section>
-    <section
-      id="notesDialog"
-      class="notes-dialog hidden"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="notesTitle"
-      aria-describedby="notesIntro"
-    >
-      <div class="notes-card">
-        <h2 id="notesTitle">Release Notes</h2>
-        <p id="notesIntro" class="notes-intro"></p>
-        <div id="notesScrollRegion" class="notes-scroll" tabindex="0" aria-label="Release notes list"></div>
-        <div class="notes-actions">
-          <button id="notesCloseButton" type="button">Close</button>
+
+      <div id="boardingControls">
+        <section class="crew-section" aria-labelledby="crewHeading">
+          <div class="section-intro">
+            <p class="eyebrow">01 / PICK YOUR PROBLEM</p>
+            <h2 id="crewHeading">Meet the usual suspects.</h2>
+            <p>Same moves. Different excuses.</p>
+          </div>
+          <div class="crew-options" id="crewOptions"></div>
+        </section>
+        <section
+          class="signature-power"
+          id="barbraPowerOptions"
+          aria-labelledby="barbraPowerHeading"
+          hidden
+        >
+          <div>
+            <p class="eyebrow">BARBRA’S SPECIAL POWER</p>
+            <h3 id="barbraPowerHeading">Breakfast of vacationers.</h3>
+            <p>Pick her boost. Three seconds of speed and bonk protection.</p>
+          </div>
+          <div class="power-options">
+            <button
+              class="power-choice"
+              id="beerPowerButton"
+              aria-pressed="true"
+            >
+              <img
+                src="assets/cartoon/morning-beer-icon.webp"
+                width="42"
+                height="48"
+                alt=""
+              /><span
+                ><strong>Morning beer</strong
+                ><small>Barbra’s signature move</small></span
+              >
+            </button>
+            <button
+              class="power-choice"
+              id="espressoPowerButton"
+              aria-pressed="false"
+            >
+              <img
+                src="assets/cartoon/espresso-icon.webp"
+                width="42"
+                height="48"
+                alt=""
+              /><span
+                ><strong>Espresso martini</strong
+                ><small>The crew’s classic boost</small></span
+              >
+            </button>
+          </div>
+        </section>
+        <section class="departure-section" aria-labelledby="departureHeading">
+          <div class="departure-picker">
+            <div class="section-heading">
+              <p class="eyebrow" id="departureHeading">
+                02 / CHOOSE YOUR DEPARTURE
+              </p>
+              <span>NO RESERVATION NECESSARY</span>
+            </div>
+            <div class="mode-options" id="modeOptions"></div>
+            <div class="mode-detail">
+              <p id="modeDetail">One life. Infinite poor decisions.</p>
+              <span id="dailyBest"></span>
+            </div>
+            <div id="partySetup" class="party-setup" hidden>
+              <label for="partyNames"
+                >Who’s coming?
+                <span>2–6 names, separated by commas</span></label
+              ><input
+                id="partyNames"
+                value="Bryan, Barbra, Kyle"
+                maxlength="150"
+                autocomplete="off"
+              />
+              <p id="partyError" role="status"></p>
+            </div>
+            <p id="challengeNotice" class="challenge-notice" hidden></p>
+          </div>
+          <aside class="daily-note">
+            <span class="note-star" aria-hidden="true">✳</span>
+            <div>
+              <p class="eyebrow">A LITTLE SOMETHING TO CHASE</p>
+              <h3 id="missionTitle">Earn your sea legs.</h3>
+              <p id="missionText">
+                Make it 100 m without becoming a cautionary tale.
+              </p>
+            </div>
+            <span id="stampCount" class="stamp-count">0 / 6 STAMPS</span>
+          </aside>
+        </section>
+        <section class="passport" aria-labelledby="passportHeading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">SOUVENIRS OF QUESTIONABLE JUDGMENT</p>
+              <h2 id="passportHeading">Your chaos passport.</h2>
+            </div>
+            <button
+              id="passportButton"
+              class="text-button"
+              aria-expanded="false"
+              aria-controls="stampList"
+            >
+              View stamps +
+            </button>
+          </div>
+          <div id="stampList" class="stamp-list" hidden></div>
+        </section>
+        <footer>
+          <span>MADE FOR YOUR FAVORITE WEIRDOS.</span
+          ><span>Hand drawn. Highly replayable. Mildly regrettable.</span
+          ><span id="saveStatus">PROGRESS SAVED ON THIS DEVICE</span>
+        </footer>
+      </div>
+      <p
+        class="sr-only"
+        id="announcer"
+        aria-live="polite"
+        aria-atomic="true"
+      ></p>
+      <noscript
+        ><p class="noscript">
+          Enable JavaScript to board this very questionable cruise.
+        </p></noscript
+      >
+    </main>
+    <dialog id="helpDialog" aria-labelledby="helpTitle">
+      <form method="dialog">
+        <button class="dialog-close icon-button" aria-label="Close help">
+          ×
+        </button>
+      </form>
+      <p class="eyebrow">A 20-SECOND SAFETY BRIEFING</p>
+      <h2 id="helpTitle">Don’t become the story.</h2>
+      <div class="help-steps">
+        <div>
+          <b>01</b>
+          <p>
+            <strong>Jump the baggage.</strong>Space, ↑, W, or tap the game. Hold
+            for a higher jump. Release for a quick hop.
+          </p>
+        </div>
+        <div>
+          <b>02</b>
+          <p>
+            <strong>Duck the gulls.</strong>↓, S, or the Duck button. One tap
+            keeps you low for a moment. Look for the DUCK sign.
+          </p>
+        </div>
+        <div>
+          <b>03</b>
+          <p>
+            <strong>Donuts are optional. Glory isn’t.</strong>Collect 5 in a row
+            for ×2 points, 10 for ×3. Missing one resets the streak. Each
+            cleared obstacle earns 5 points.
+          </p>
+        </div>
+        <div>
+          <b>04</b>
+          <p>
+            <strong>Espresso martini = Espresso Rush.</strong>Grab the glass for
+            three seconds of extra speed and protection from every obstacle.
+            Every character gets the same boost. Pick Barbra to choose her
+            Morning Beer signature power instead. Donuts score points; drinks
+            bring the chaos.
+          </p>
+        </div>
+        <div>
+          <b>05</b>
+          <p>
+            <strong>One bonk, back to boarding.</strong>Go again instantly. Try
+            Easy breezy for three lives and a slower pace. Travel through five
+            ports; finish 1,250 m and keep sailing.
+          </p>
         </div>
       </div>
-    </section>
-    <p class="touch-hint" aria-hidden="true">Tap anywhere to jump</p>
-  </main>
-  <script type="module" src="src/game.js"></script>
-</body>
+      <p class="dialog-note">
+        Pause with P or Escape. Switching apps pauses your run. All characters
+        have identical controls and hitboxes.
+      </p>
+      <button class="primary" id="helpDone">Got it. Probably.</button>
+    </dialog>
+    <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+      <form method="dialog">
+        <button class="dialog-close icon-button" aria-label="Close settings">
+          ×
+        </button>
+      </form>
+      <p class="eyebrow">YOUR KIND OF CHAOS</p>
+      <h2 id="settingsTitle">Creature comforts.</h2>
+      <label class="setting"
+        ><span
+          ><strong>Sound effects</strong
+          ><small>Little bloops. Big feelings.</small></span
+        ><input type="checkbox" id="soundSetting" checked /></label
+      ><label class="setting"
+        ><span
+          ><strong>Extra motion</strong
+          ><small>Particles, bobbing, and a tiny bonk shake.</small></span
+        ><input type="checkbox" id="motionSetting" checked
+      /></label>
+      <p class="dialog-note">
+        Reduced-motion preferences are respected. Records and passport stamps
+        are stored on this device. Easy breezy records are separate; stamps are
+        earned in the other modes.
+      </p>
+      <p id="legacyNote" class="dialog-note" hidden></p>
+      <button class="primary" id="settingsDone">All comfortable →</button>
+    </dialog>
+    <script type="module" src="src/game.js?v=3"></script>
+  </body>
 </html>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cruise Dash · Art review</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #f5f0e4;
+        color: #293f44;
+        font: 15px system-ui;
+      }
+      main {
+        max-width: 1000px;
+        margin: auto;
+      }
+      h1 {
+        font: 32px Georgia;
+        margin: 0 0 8px;
+      }
+      p {
+        line-height: 1.6;
+      }
+      fieldset {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        border: 1px solid #b0b9a5;
+        padding: 16px;
+        margin: 20px 0;
+      }
+      label {
+        display: grid;
+        gap: 5px;
+        font-size: 13px;
+      }
+      select,
+      button {
+        font: inherit;
+        padding: 9px;
+        border: 1px solid #899b84;
+        border-radius: 4px;
+        background: #fff9e8;
+        color: inherit;
+      }
+      #stage {
+        width: min(100%, 900px);
+        height: 490px;
+        border: 1px solid #8d9e87;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .note {
+        font-size: 13px;
+        color: #657264;
+      }
+      a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>The animation deck.</h1>
+      <p>
+        Inspect the actual game renderer: six running poses, full-size crouch,
+        protected rush, props, and five scrolling panoramas. This development
+        page is excluded from the production build.
+      </p>
+      <fieldset>
+        <legend>Art checks</legend>
+        <label
+          >Character<select id="character">
+            <option value="bryan">Bryan</option>
+            <option value="barbra">Barbra</option>
+            <option value="kyle">Kyle</option>
+          </select></label
+        >
+        <label
+          >Pose<select id="pose">
+            <option value="run">Running cycle</option>
+            <option value="jump">Jump</option>
+            <option value="duck">Crouch</option>
+            <option value="hurt">Bonked</option>
+          </select></label
+        >
+        <label
+          >Destination<select id="port">
+            <option value="0">Sun deck</option>
+            <option value="1">Pool club</option>
+            <option value="2">Bahamas</option>
+            <option value="3">Sunset deck</option>
+            <option value="4">Miami</option>
+          </select></label
+        >
+        <label
+          >Stage<select id="size">
+            <option value="desktop">Desktop</option>
+            <option value="phone">Phone</option>
+          </select></label
+        >
+        <label>Boost active<input type="checkbox" id="boost" /></label>
+        <label
+          >Barbra’s power<select id="power">
+            <option value="morning-beer">Morning beer</option>
+            <option value="espresso">Espresso martini</option>
+          </select></label
+        ><button id="pause">Pause animation</button>
+      </fieldset>
+      <div id="stage">
+        <canvas
+          id="canvas"
+          aria-label="Character and obstacle animation preview"
+        ></canvas>
+      </div>
+      <p id="status" role="status">Loading approved art…</p>
+      <p class="note">
+        The review props remain in place for inspection while the scenery moves.
+        In the game, hazards move with the course. Check that the crouch clears
+        the gull, leg phases change, outlines match, and a panorama wrap has no
+        blank gap. <a href="../">Play the actual game →</a>
+      </p>
+    </main>
+    <script type="module">
+      import { loadArt, Renderer } from "../src/renderer.js";
+      import { createRun } from "../src/engine.js";
+      const $ = (id) => document.getElementById(id),
+        art = await loadArt(),
+        renderer = new Renderer($("canvas"), art);
+      let elapsed = 0,
+        previous = 0,
+        paused = false;
+      $("pause").onclick = () => {
+        paused = !paused;
+        $("pause").textContent = paused
+          ? "Resume animation"
+          : "Pause animation";
+      };
+      $("size").onchange = () => {
+        const phone = $("size").value === "phone";
+        $("stage").style.width = phone ? "356px" : "min(100%,900px)";
+        $("stage").style.maxWidth = "100%";
+        $("stage").style.height = phone ? "489px" : "490px";
+        renderer.resize();
+      };
+      new ResizeObserver(() => renderer.resize()).observe($("stage"));
+      function frame(now) {
+        const dt = previous ? Math.min((now - previous) / 1000, 0.05) : 0;
+        previous = now;
+        if (!paused) elapsed += dt;
+        const r = createRun({
+          character: $("character").value,
+          power: $("power").value,
+        });
+        r.scroll = elapsed * 230;
+        r.time = elapsed;
+        r.port = Number($("port").value);
+        r.boost = $("boost").checked ? 3 : 0;
+        const pose = $("pose").value;
+        r.y = pose === "jump" ? 90 : 0;
+        r.duck = pose === "duck" ? 1 : 0;
+        r.status = pose === "hurt" ? "over" : "running";
+        r.obstacles = [
+          { type: "suitcase", x: r.scroll + 320 },
+          { type: "trolley", x: r.scroll + 450 },
+          { type: "gull", x: r.scroll + 640 },
+        ];
+        r.pickups = [
+          { kind: "donut", x: r.scroll + 540, y: 125 },
+          { kind: r.power, x: r.scroll + 740, y: 45 },
+        ];
+        renderer.draw(r, { time: elapsed, dt: paused ? 0 : dt });
+        $("status").textContent =
+          `${r.character} · ${pose} · ${r.boost ? r.power + " · " : ""}${Math.floor(elapsed)} seconds of scrolling`;
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
